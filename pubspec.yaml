@@ -5,7 +5,7 @@ publish_to: "none"
 version: 2.0.0+1
 
 environment:
-  sdk: ">=3.9.0 <4.0.0"
+  sdk: ">=3.10.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -42,6 +42,7 @@ flutter:
 
   uses-material-design: true
 
-  assets:
-    - assets/images/
-    - assets/icons/
+  # Ideiglenesen kikommentezve, amíg a mappák nincsenek létrehozva.
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/
