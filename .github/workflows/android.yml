@@ -5,12 +5,10 @@ on:
     branches:
       - main
       - master
-
   pull_request:
     branches:
       - main
       - master
-
   workflow_dispatch:
 
 jobs:
@@ -18,16 +16,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -36,28 +34,24 @@ jobs:
       - name: Flutter Version
         run: flutter --version
 
-      - name: Get Packages
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: Recreate Android platform
+      - name: Recreate Android
         run: |
           rm -rf android
-          flutter create . --platforms=android
+          flutter create --platforms=android .
+          rm -rf test
 
-      - name: Restore AndroidManifest
+      - name: Add INTERNET permission
         run: |
           sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
-          sed -i 's/android:label="[^"]*"/android:label="MeccsIQ Pro v2"/' android/app/src/main/AndroidManifest.xml
-
-      - name: Analyze
-        run: flutter analyze --no-fatal-infos
 
       - name: Build APK
         run: flutter build apk --release
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: meccsiq-pro-release
+          name: MeccsIQ-Pro-APK
           path: build/app/outputs/flutter-apk/app-release.apk
