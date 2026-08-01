@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/match_model.dart';
-import '../../models/league_model.dart';
-import '../../models/team_model.dart';
 import '../../services/statpal_service.dart';
-import 'widgets/match_tile.dart';
-import 'match_detail_screen.dart';
 
 class MatchesScreen extends StatefulWidget {
   const MatchesScreen({super.key});
@@ -53,12 +48,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
             return const Center(child: Text('Nincsenek elérhető mérkőzések.'));
           }
 
-          // Itt feldolgozhatjuk a StatPal-tól kapott JSON választ a meccsekre.
-          // (A válasz struktúrájától függően építjük fel a MatchModel listát)
-          
           return ListView(
-            children: [
-              const Padding(
+            children: const [
+              Padding(
                 padding: EdgeInsets.all(16.0),
                 child: Text('StatPal API adatok sikeresen betöltve.', style: TextStyle(color: Colors.grey)),
               ),
