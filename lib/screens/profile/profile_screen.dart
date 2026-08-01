@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/theme_provider.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -165,10 +166,12 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _showApiSettingsBottomSheet(BuildContext context) {
-    final statpalController = TextEditingController();
-    final sportsdbController = TextEditingController();
-    final sportmonksController = TextEditingController();
+  void _showApiSettingsBottomSheet(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    final statpalController = TextEditingController(text: prefs.getString('statpal_key') ?? '');
+    final sportsdbController = TextEditingController(text: prefs.getString('sportsdb_key') ?? '');
+    final sportmonksController = TextEditingController(text: prefs.getString('sportmonks_key') ?? '');
 
     showModalBottomSheet(
       context: context,
@@ -233,11 +236,14 @@ class ProfileScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: () {
-                    // Itt lehetne menteni a kulcsokat SharedPreferences-be
+                  onPressed: () async {
+                    await prefs.setString('statpal_key', statpalController.text);
+                    await prefs.setString('sportsdb_key', sportsdbController.text);
+                    await prefs.setString('sportmonks_key', sportmonksController.text);
+
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('api kulcsok sikeresen mentve')),
+                      const SnackBar(content: Text('api kulcsok sikeresen elmentve')),
                     );
                   },
                   child: const Text('kulcsok mentése', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
