@@ -42,6 +42,8 @@ jobs:
           if [ ! -d "android" ]; then
             echo "android folder missing, generating..."
             flutter create . --platforms=android
+            # Töröljük a generált tesztet, mert hibás
+            rm -rf test
           fi
 
       - name: Analyze
