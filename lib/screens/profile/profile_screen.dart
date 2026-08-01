@@ -91,7 +91,9 @@ class ProfileScreen extends StatelessWidget {
                   title: const Text('api beállítások', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                   subtitle: const Text('statpal • thesportsdb • sportmonks', style: TextStyle(fontSize: 11, color: Colors.grey)),
                   trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
-                  onTap: () {},
+                  onTap: () {
+                    _showApiSettingsBottomSheet(context);
+                  },
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
@@ -155,6 +157,91 @@ class ProfileScreen extends StatelessWidget {
                   themeProvider.setTheme(ThemeMode.dark);
                   Navigator.pop(context);
                 },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showApiSettingsBottomSheet(BuildContext context) {
+    final statpalController = TextEditingController();
+    final sportsdbController = TextEditingController();
+    final sportmonksController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'api kulcsok beállítása',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: statpalController,
+                style: const TextStyle(fontSize: 13),
+                decoration: const InputDecoration(
+                  labelText: 'statpal api kulcs',
+                  labelStyle: TextStyle(fontSize: 12),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: sportsdbController,
+                style: const TextStyle(fontSize: 13),
+                decoration: const InputDecoration(
+                  labelText: 'thesportsdb api kulcs',
+                  labelStyle: TextStyle(fontSize: 12),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: sportmonksController,
+                style: const TextStyle(fontSize: 13),
+                decoration: const InputDecoration(
+                  labelText: 'sportmonks api kulcs',
+                  labelStyle: TextStyle(fontSize: 12),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () {
+                    // Itt lehetne menteni a kulcsokat SharedPreferences-be
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('api kulcsok sikeresen mentve')),
+                    );
+                  },
+                  child: const Text('kulcsok mentése', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                ),
               ),
             ],
           ),
