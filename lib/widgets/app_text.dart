@@ -1,8 +1,8 @@
 /*
 ===========================================
 MeccsIQ Pro v2.0
-Build: #005
-Version: v2.0.0
+Build: #006
+Version: v2.0.1
 File: app_text.dart
 ===========================================
 */
@@ -32,48 +32,56 @@ class AppText extends StatelessWidget {
   factory AppText.title(
     String text, {
     Color? color,
+    TextAlign? align,
   }) {
     return AppText(
       text,
       size: 22,
       weight: FontWeight.bold,
       color: color,
+      align: align,
     );
   }
 
   factory AppText.subtitle(
     String text, {
     Color? color,
+    TextAlign? align,
   }) {
     return AppText(
       text,
       size: 16,
       weight: FontWeight.bold,
       color: color,
+      align: align,
     );
   }
 
   factory AppText.body(
     String text, {
     Color? color,
+    TextAlign? align,
   }) {
     return AppText(
       text,
       size: 13,
       weight: FontWeight.w600,
       color: color,
+      align: align,
     );
   }
 
   factory AppText.caption(
     String text, {
     Color? color,
+    TextAlign? align,
   }) {
     return AppText(
       text,
       size: 11,
       weight: FontWeight.w600,
       color: color,
+      align: align,
     );
   }
 
