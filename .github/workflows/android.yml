@@ -5,12 +5,10 @@ on:
     branches:
       - main
       - master
-
   pull_request:
     branches:
       - main
       - master
-
   workflow_dispatch:
 
 jobs:
@@ -38,6 +36,13 @@ jobs:
 
       - name: Get Packages
         run: flutter pub get
+
+      - name: Create Android platform files if missing
+        run: |
+          if [ ! -d "android" ]; then
+            echo "android folder missing, generating..."
+            flutter create . --platforms=android
+          fi
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos
