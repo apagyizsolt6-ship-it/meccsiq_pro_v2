@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - master
+
   pull_request:
     branches:
       - main
       - master
+
   workflow_dispatch:
 
 jobs:
@@ -37,14 +39,15 @@ jobs:
       - name: Get Packages
         run: flutter pub get
 
-      - name: Create Android platform files if missing
+      - name: Recreate Android platform
         run: |
-          if [ ! -d "android" ]; then
-            echo "android folder missing, generating..."
-            flutter create . --platforms=android
-            # Töröljük a generált tesztet, mert hibás
-            rm -rf test
-          fi
+          rm -rf android
+          flutter create . --platforms=android
+
+      - name: Restore AndroidManifest
+        run: |
+          sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET"/>' android/app/src/main/AndroidManifest.xml
+          sed -i 's/android:label="[^"]*"/android:label="MeccsIQ Pro v2"/' android/app/src/main/AndroidManifest.xml
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos
