@@ -77,7 +77,9 @@ class ProfileScreen extends StatelessWidget {
                   title: const Text('megjelenés', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                   subtitle: const Text('világos / sötét mód', style: TextStyle(fontSize: 11, color: Colors.grey)),
                   trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
-                  onTap: () {},
+                  onTap: () {
+                    _showThemeBottomSheet(context);
+                  },
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
@@ -85,7 +87,9 @@ class ProfileScreen extends StatelessWidget {
                   title: const Text('api beállítások', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                   subtitle: const Text('statpal • thesportsdb • sportmonks', style: TextStyle(fontSize: 11, color: Colors.grey)),
                   trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
-                  onTap: () {},
+                  onTap: () {
+                    // Itt jön majd a 2-es pont
+                  },
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
@@ -99,6 +103,46 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showThemeBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'megjelenés kiválasztása',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.brightness_auto),
+                title: const Text('rendszer alapú', style: TextStyle(fontSize: 13)),
+                onTap: () => Navigator.pop(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.light_mode_outlined),
+                title: const Text('világos mód', style: TextStyle(fontSize: 13)),
+                onTap: () => Navigator.pop(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.dark_mode_outlined),
+                title: const Text('sötét mód', style: TextStyle(fontSize: 13)),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
