@@ -136,7 +136,7 @@ class ProfileScreen extends StatelessWidget {
                 leading: const Icon(Icons.brightness_auto),
                 title: const Text('rendszer alapú', style: TextStyle(fontSize: 13)),
                 onTap: () {
-                  themeProvider.setThemeMode(ThemeMode.system);
+                  themeProvider.setTheme(ThemeMode.system);
                   Navigator.pop(context);
                 },
               ),
@@ -144,7 +144,7 @@ class ProfileScreen extends StatelessWidget {
                 leading: const Icon(Icons.light_mode_outlined),
                 title: const Text('világos mód', style: TextStyle(fontSize: 13)),
                 onTap: () {
-                  themeProvider.setThemeMode(ThemeMode.light);
+                  themeProvider.setTheme(ThemeMode.light);
                   Navigator.pop(context);
                 },
               ),
@@ -152,7 +152,7 @@ class ProfileScreen extends StatelessWidget {
                 leading: const Icon(Icons.dark_mode_outlined),
                 title: const Text('sötét mód', style: TextStyle(fontSize: 13)),
                 onTap: () {
-                  themeProvider.setThemeMode(ThemeMode.dark);
+                  themeProvider.setTheme(ThemeMode.dark);
                   Navigator.pop(context);
                 },
               ),
