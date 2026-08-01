@@ -18,7 +18,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   
   String _searchQuery = '';
   final Set<String> _collapsedLeagues = {};
-  bool _allCollapsed = true; // Alapból minden összecsukva, hogy tiszta legyen
+  bool _allCollapsed = true;
   
   Timer? _debounceTimer;
 
@@ -52,6 +52,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       initialDate: _selectedDate,
       firstDate: DateTime(2025, 1, 1),
       lastDate: DateTime(2028, 12, 31),
+      locale: const Locale('hu', 'HU'),
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -71,11 +72,23 @@ class _MatchesScreenState extends State<MatchesScreen> {
     });
   }
 
-  // FŐSZŰRŐ: Csak az 1., 2. osztályok és kupák megtartása, felesleges regionális ligák kiszűrése
+  // Központi fordító (Translator) a mérkőzés státuszok magyarítására
+  String _translateStatus(String status) {
+    final s = status.toUpperCase().trim();
+    if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
+    if (s == 'HT') return 'Félidő';
+    if (s == 'NS') return 'Kezdésre vár';
+    if (s == '1H') return '1. félidő';
+    if (s == '2H') return '2. félidő';
+    if (s == 'ET') return 'Hosszabbítás';
+    if (s == 'PEN') return 'Büntetők';
+    if (s.contains('LIVE') || s.contains('IN_PLAY')) return 'Élő';
+    return status; // Ha nem ismeri fel, visszaadja az eredetit
+  }
+
   bool _isTopLeague(String leagueName) {
     final name = leagueName.toLowerCase();
     
-    // Kizárandó szavak (ha ezek benne vannak és nem 1-2. osztály, kiszűrjük)
     if (name.contains('regionalliga') || 
         name.contains('oberliga') || 
         name.contains('npl') || 
@@ -89,7 +102,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
       return false;
     }
 
-    // Elfogadott kulcsszavak vagy főbb bajnokságok
     return name.contains('1') || 
            name.contains('2') || 
            name.contains('premier') || 
@@ -116,15 +128,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          // Mindet nyit / mindet csuk gyorsgomb
           IconButton(
             icon: Icon(_allCollapsed ? Icons.unfold_more : Icons.unfold_less, size: 20),
             tooltip: _allCollapsed ? 'Mindet kinyit' : 'Mindet összecsuk',
             onPressed: () {
               setState(() {
                 _allCollapsed = !_allCollapsed;
-                // Ha átváltjuk, frissítjük a halmazt
-                // (Ezt a build elején kezeljük le a ligák listája alapján)
               });
             },
           ),
@@ -149,7 +158,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       onPressed: () => _selectDate(context),
                       icon: const Icon(Icons.calendar_month, size: 16, color: Colors.blueAccent),
                       label: Text(
-                        DateFormat('yyyy. MMMM d.').format(_selectedDate),
+                        DateFormat('yyyy. MMMM d.', 'hu_HU').format(_selectedDate),
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
                       ),
                     ),
@@ -200,7 +209,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 final data = snapshot.data!;
                 final allEvents = data['events'] as List<dynamic>? ?? [];
 
-                // 1. Csak foci + Csak 1-2. osztály és kupák szűrése
                 final matches = allEvents.where((match) {
                   final sport = match['strSport']?.toString().toLowerCase() ?? '';
                   final isSoccer = sport == 'soccer' || (sport.contains('football') && !sport.contains('american'));
@@ -210,7 +218,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   return _isTopLeague(league);
                 }).toList();
 
-                // 2. Kereső szerinti szűrés
                 final filteredMatches = matches.where((match) {
                   final home = match['strHomeTeam']?.toString().toLowerCase() ?? '';
                   final away = match['strAwayTeam']?.toString().toLowerCase() ?? '';
@@ -239,7 +246,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       final leagueName = leagues[leagueIndex];
                       final leagueMatches = groupedMatches[leagueName]!;
                       
-                      // Ha _allCollapsed igaz, akkor mind összecsukva, különben kibontva
                       final isCollapsed = _allCollapsed ? !_collapsedLeagues.contains(leagueName) : _collapsedLeagues.contains(leagueName);
 
                       return Column(
@@ -248,7 +254,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           InkWell(
                             onTap: () {
                               setState(() {
-                                // Egyedi kattintás felülírja a globális állapotot az adott ligára
                                 if (_collapsedLeagues.contains(leagueName)) {
                                   _collapsedLeagues.remove(leagueName);
                                 } else {
@@ -290,7 +295,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               final awayTeam = match['strAwayTeam'] ?? 'Vendég';
                               final homeScore = match['intHomeScore'] ?? '-';
                               final awayScore = match['intAwayScore'] ?? '-';
-                              final status = match['strStatus'] ?? match['strProgress'] ?? 'FT';
+                              final rawStatus = match['strStatus'] ?? match['strProgress'] ?? 'FT';
+                              final status = _translateStatus(rawStatus);
 
                               return Container(
                                 decoration: const BoxDecoration(
@@ -301,12 +307,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                 child: Row(
                                   children: [
                                     SizedBox(
-                                      width: 40,
+                                      width: 45,
                                       child: Text(
                                         status,
                                         style: TextStyle(
                                           fontSize: 10,
-                                          color: status == 'FT' ? Colors.grey : Colors.green,
+                                          color: status == 'Vége' ? Colors.grey : Colors.green,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
