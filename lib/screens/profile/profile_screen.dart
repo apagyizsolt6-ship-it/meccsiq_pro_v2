@@ -87,9 +87,7 @@ class ProfileScreen extends StatelessWidget {
                   title: const Text('api beállítások', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                   subtitle: const Text('statpal • thesportsdb • sportmonks', style: TextStyle(fontSize: 11, color: Colors.grey)),
                   trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
-                  onTap: () {
-                    // Itt jön majd a 2-es pont
-                  },
+                  onTap: () {},
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
@@ -109,12 +107,18 @@ class ProfileScreen extends StatelessWidget {
   void _showThemeBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
