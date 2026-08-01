@@ -14,9 +14,15 @@ class SportsDbService {
     return key;
   }
 
+  // Alapértelmezett élő meccsek (a mai vagy fix tesztdátumra)
   Future<Map<String, dynamic>?> getLiveMatches() async {
+    return getMatchesForDate('2026-06-06');
+  }
+
+  // Új metódus: meccsek lekérése tetszőleges dátumra (YYYY-MM-DD formátumban)
+  Future<Map<String, dynamic>?> getMatchesForDate(String date) async {
     final apiKey = await _getAccessKey();
-    final url = Uri.parse('https://www.thesportsdb.com/api/v1/json/$apiKey/eventsday.php?d=2026-06-06');
+    final url = Uri.parse('https://www.thesportsdb.com/api/v1/json/$apiKey/eventsday.php?d=$date');
 
     try {
       final response = await http.get(url);
