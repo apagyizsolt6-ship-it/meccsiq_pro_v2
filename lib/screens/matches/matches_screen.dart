@@ -8,12 +8,14 @@ class MatchesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sampleLeague = LeagueModel(id: 1, name: 'OTP Bank Liga', country: 'Magyarország');
+    final otpLeague = LeagueModel(id: 1, name: 'OTP Bank Liga', country: 'Magyarország');
+    final laLiga = LeagueModel(id: 2, name: 'La Liga', country: 'Spanyolország');
     
     final matches = [
+      // OTP Bank Liga meccsek
       MatchModel(
         id: 1,
-        league: sampleLeague,
+        league: otpLeague,
         homeTeam: TeamModel(id: 1, name: 'Ferencváros'),
         awayTeam: TeamModel(id: 2, name: 'Újpest'),
         kickoff: DateTime.now().subtract(const Duration(hours: 2)),
@@ -23,7 +25,7 @@ class MatchesScreen extends StatelessWidget {
       ),
       MatchModel(
         id: 2,
-        league: sampleLeague,
+        league: otpLeague,
         homeTeam: TeamModel(id: 3, name: 'Puskás Akadémia'),
         awayTeam: TeamModel(id: 4, name: 'DVSC'),
         kickoff: DateTime.now(),
@@ -31,7 +33,42 @@ class MatchesScreen extends StatelessWidget {
         awayScore: 0,
         status: MatchStatus.live,
       ),
+      MatchModel(
+        id: 3,
+        league: otpLeague,
+        homeTeam: TeamModel(id: 5, name: 'MTK Budapest'),
+        awayTeam: TeamModel(id: 6, name: 'ZTE FC'),
+        kickoff: DateTime.now().add(const Duration(hours: 2)),
+        homeScore: null,
+        awayScore: null,
+        status: MatchStatus.notStarted,
+      ),
+      // La Liga meccsek
+      MatchModel(
+        id: 4,
+        league: laLiga,
+        homeTeam: TeamModel(id: 7, name: 'Real Madrid'),
+        awayTeam: TeamModel(id: 8, name: 'Barcelona'),
+        kickoff: DateTime.now().add(const Duration(hours: 4)),
+        homeScore: null,
+        awayScore: null,
+        status: MatchStatus.notStarted,
+      ),
+      MatchModel(
+        id: 5,
+        league: laLiga,
+        homeTeam: TeamModel(id: 9, name: 'Atlético Madrid'),
+        awayTeam: TeamModel(id: 10, name: 'Sevilla'),
+        kickoff: DateTime.now().add(const Duration(hours: 6)),
+        homeScore: null,
+        awayScore: null,
+        status: MatchStatus.notStarted,
+      ),
     ];
+
+    // Ligák szerinti csoportosítás
+    final otpMatches = matches.where((m) => m.league.id == 1).toList();
+    final spanishMatches = matches.where((m) => m.league.id == 2).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
@@ -43,91 +80,96 @@ class MatchesScreen extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          // Liga fejléc (Eredmények.com stílus)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Colors.blueGrey.withOpacity(0.1),
-            child: Row(
-              children: const [
-                Icon(Icons.sports_soccer, size: 16, color: Colors.blueAccent),
-                SizedBox(width: 8),
-                Text(
-                  'MAGYARORSZÁG: OTP Bank Liga',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
-                ),
-              ],
+          // Magyarország lenyitható szekció
+          _buildLeagueSection('MAGYARORSZÁG: OTP Bank Liga', otpMatches),
+          const SizedBox(height: 8),
+          // Spanyolország lenyitható szekció
+          _buildLeagueSection('SPANYOLORSZÁG: La Liga', spanishMatches),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeagueSection(String title, List<MatchModel> leagueMatches) {
+    return Container(
+      color: Colors.white,
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        backgroundColor: Colors.transparent,
+        collapsedBackgroundColor: Colors.transparent,
+        title: Row(
+          children: [
+            const Icon(Icons.sports_soccer, size: 16, color: Colors.blueAccent),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
             ),
+          ],
+        ),
+        children: leagueMatches.map((match) => Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F9FA),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.withOpacity(0.1)),
           ),
-          // Meccsek kártyákban
-          ...matches.map((match) => Container(
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 50,
+                  child: Text(
+                    match.isLive 
+                        ? 'LIVE' 
+                        : (match.isFinished 
+                            ? 'Vége' 
+                            : '${match.kickoff.hour.toString().padLeft(2, '0')}:${match.kickoff.minute.toString().padLeft(2, '0')}'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: match.isLive ? Colors.redAccent : Colors.grey[600],
                     ),
-                  ],
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Státusz / Idő
-                      SizedBox(
-                        width: 50,
-                        child: Text(
-                          match.isLive ? 'LIVE' : (match.isFinished ? 'Vége' : '21:00'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: match.isLive ? Colors.redAccent : Colors.grey[600],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
+                      Text(
+                        match.homeTeam.name,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
                       ),
-                      const SizedBox(width: 8),
-                      // Csapatok
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              match.homeTeam.name,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              match.awayTeam.name,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: 4),
+                      Text(
+                        match.awayTeam.name,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
                       ),
-                      // Eredmények
-                      if (match.hasScore)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '${match.homeScore}',
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${match.awayScore}',
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black),
-                            ),
-                          ],
-                        ),
                     ],
                   ),
                 ),
-              )),
-        ],
+                if (match.hasScore)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${match.homeScore}',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${match.awayScore}',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        )).toList(),
       ),
     );
   }
