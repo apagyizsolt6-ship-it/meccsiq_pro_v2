@@ -13,7 +13,6 @@ class MatchesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Teszt adatok a meglévő modellek alapján a ZIP struktúrához igazítva
     final sampleLeague = LeagueModel(id: 1, name: 'OTP Bank Liga', country: 'Magyarország');
     
     final matches = [
@@ -62,10 +61,7 @@ class MatchesScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (index == 0)
-                      LeagueHeader(
-                        leagueName: match.league.name,
-                        country: match.league.country ?? '',
-                      ),
+                      const LeagueHeader(),
                     MatchTile(match: match),
                   ],
                 );
