@@ -3,13 +3,11 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SportsDbService {
-  // Tartalék / ingyenes tesztkulcs, ha még nem lenne mentve semmi
   static const String fallbackKey = '1';
 
   Future<String?> _getAccessKey() async {
     final prefs = await SharedPreferences.getInstance();
-    // Itt olvassuk ki a SharedPreferences-ből a kulcsot (a profil képernyő mentési kulcsa alapján)
-    final key = prefs.getString('thesportsdb_key') ?? prefs.getString('thesportsdb');
+    final key = prefs.getString('sportsdb_key');
     if (key == null || key.isEmpty) {
       return fallbackKey;
     }
@@ -18,7 +16,6 @@ class SportsDbService {
 
   Future<Map<String, dynamic>?> getLiveMatches() async {
     final apiKey = await _getAccessKey();
-    // A TheSportsDB API URL a dinamikusan kiolvasott kulccsal
     final url = Uri.parse('https://www.thesportsdb.com/api/v1/json/$apiKey/eventsday.php?d=2026-06-06');
 
     try {
