@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../core/theme/theme_provider.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
@@ -78,7 +82,7 @@ class ProfileScreen extends StatelessWidget {
                   subtitle: const Text('világos / sötét mód', style: TextStyle(fontSize: 11, color: Colors.grey)),
                   trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
                   onTap: () {
-                    _showThemeBottomSheet(context);
+                    _showThemeBottomSheet(context, themeProvider);
                   },
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
@@ -104,7 +108,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  void _showThemeBottomSheet(BuildContext context) {
+  void _showThemeBottomSheet(BuildContext context, ThemeProvider themeProvider) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -131,17 +135,26 @@ class ProfileScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.brightness_auto),
                 title: const Text('rendszer alapú', style: TextStyle(fontSize: 13)),
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  themeProvider.setThemeMode(ThemeMode.system);
+                  Navigator.pop(context);
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.light_mode_outlined),
                 title: const Text('világos mód', style: TextStyle(fontSize: 13)),
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  themeProvider.setThemeMode(ThemeMode.light);
+                  Navigator.pop(context);
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.dark_mode_outlined),
                 title: const Text('sötét mód', style: TextStyle(fontSize: 13)),
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  themeProvider.setThemeMode(ThemeMode.dark);
+                  Navigator.pop(context);
+                },
               ),
             ],
           ),
