@@ -36,13 +36,6 @@ jobs:
       - name: Flutter Version
         run: flutter --version
 
-      - name: Create Android Project
-        run: |
-          flutter create . \
-            --platforms=android \
-            --project-name=meccsiq_pro_v2 \
-            --org=hu.meccsiq.pro
-
       - name: Get Packages
         run: flutter pub get
 
@@ -53,6 +46,7 @@ jobs:
         run: flutter build apk --release
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: meccsiq-pro-release
