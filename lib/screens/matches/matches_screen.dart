@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/statpal_service.dart';
+import '../../services/sports_db_service.dart';
 
 class MatchesScreen extends StatefulWidget {
   const MatchesScreen({super.key});
@@ -9,13 +9,13 @@ class MatchesScreen extends StatefulWidget {
 }
 
 class _MatchesScreenState extends State<MatchesScreen> {
-  final StatpalService _statpalService = StatpalService();
+  final SportsDbService _sportsDbService = SportsDbService();
   late Future<Map<String, dynamic>?> _liveMatchesFuture;
 
   @override
   void initState() {
     super.initState();
-    _liveMatchesFuture = _statpalService.getLiveMatches();
+    _liveMatchesFuture = _sportsDbService.getLiveMatches();
   }
 
   @override
@@ -49,28 +49,26 @@ class _MatchesScreenState extends State<MatchesScreen> {
           }
 
           final data = snapshot.data!;
-          // Itt nyerjük ki a meccsek listáját a JSON-ből (ha a kulcs pl. 'response' vagy 'data' vagy 'matches')
-          // Állítsd be a StatPal API szerkezete szerint a megfelelő kulcsot:
-          final matches = data['response'] ?? data['data'] ?? data['matches'] ?? [];
+          final matches = data['events'] as List<dynamic>? ?? [];
 
           if (matches.isEmpty) {
-            return const Center(child: Text('Nincsenek élő mérkőzések jelenleg.'));
+            return const Center(child: Text('Nincsenek mérkőzések jelenleg.'));
           }
 
           return ListView.builder(
             itemCount: matches.length,
             itemBuilder: (context, index) {
               final match = matches[index];
-              // Példa mezők kiolvasására (cseréld le a Valódi StatPal kulcsokra, ha szükséges):
-              final homeTeam = match['home_team']?['name'] ?? match['homeTeam'] ?? 'Hazai csapat';
-              final awayTeam = match['away_team']?['name'] ?? match['awayTeam'] ?? 'Vendég csapat';
+              final homeTeam = match['strHomeTeam'] ?? 'Hazai csapat';
+              final awayTeam = match['strAwayTeam'] ?? 'Vendég csapat';
+              final league = match['strLeague'] ?? 'Bajnokság';
 
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: ListTile(
                   leading: const Icon(Icons.sports_soccer, color: Colors.blue),
                   title: Text('$homeTeam vs $awayTeam', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Élő mérkőzés'),
+                  subtitle: Text(league),
                 ),
               );
             },
