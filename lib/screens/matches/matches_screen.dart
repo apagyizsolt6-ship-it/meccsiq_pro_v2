@@ -14,7 +14,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
   final SportsDbService _sportsDbService = SportsDbService();
   late Future<Map<String, dynamic>?> _matchesFuture;
   
-  DateTime _selectedDate = DateTime(2026, 8, 1);
+  // Visszaállítva a korábbi stabil tesztdátumra, de a naptárból bármikor szabadon változtatható
+  DateTime _selectedDate = DateTime(2026, 6, 6);
   
   String _searchQuery = '';
   final Set<String> _collapsedLeagues = {};
@@ -52,7 +53,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
       initialDate: _selectedDate,
       firstDate: DateTime(2025, 1, 1),
       lastDate: DateTime(2028, 12, 31),
-      locale: const Locale('hu', 'HU'),
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -72,7 +72,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     });
   }
 
-  // Központi fordító (Translator) a mérkőzés státuszok magyarítására
+  // Fordító a mérkőzés státuszok magyarítására
   String _translateStatus(String status) {
     final s = status.toUpperCase().trim();
     if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
@@ -83,38 +83,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     if (s == 'ET') return 'Hosszabbítás';
     if (s == 'PEN') return 'Büntetők';
     if (s.contains('LIVE') || s.contains('IN_PLAY')) return 'Élő';
-    return status; // Ha nem ismeri fel, visszaadja az eredetit
-  }
-
-  bool _isTopLeague(String leagueName) {
-    final name = leagueName.toLowerCase();
-    
-    if (name.contains('regionalliga') || 
-        name.contains('oberliga') || 
-        name.contains('npl') || 
-        name.contains('divizion group') || 
-        name.contains('u17') || 
-        name.contains('u19') || 
-        name.contains('u20') || 
-        name.contains('u21') ||
-        name.contains('women') || 
-        name.contains('amateur')) {
-      return false;
-    }
-
-    return name.contains('1') || 
-           name.contains('2') || 
-           name.contains('premier') || 
-           name.contains('liga') || 
-           name.contains('serie') || 
-           name.contains('bundesliga') || 
-           name.contains('division') || 
-           name.contains('championship') || 
-           name.contains('cup') || 
-           name.contains('copa') || 
-           name.contains('superleague') || 
-           name.contains('ekstraklasa') || 
-           name.contains('friendlies');
+    return status;
   }
 
   @override
@@ -158,7 +127,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       onPressed: () => _selectDate(context),
                       icon: const Icon(Icons.calendar_month, size: 16, color: Colors.blueAccent),
                       label: Text(
-                        DateFormat('yyyy. MMMM d.', 'hu_HU').format(_selectedDate),
+                        DateFormat('yyyy. MMMM d.').format(_selectedDate),
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
                       ),
                     ),
@@ -209,13 +178,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 final data = snapshot.data!;
                 final allEvents = data['events'] as List<dynamic>? ?? [];
 
+                // Biztonságos foci szűrés (minden focis esemény átmegy, nem vesznek el meccsek)
                 final matches = allEvents.where((match) {
                   final sport = match['strSport']?.toString().toLowerCase() ?? '';
-                  final isSoccer = sport == 'soccer' || (sport.contains('football') && !sport.contains('american'));
-                  if (!isSoccer) return false;
-
-                  final league = match['strLeague']?.toString() ?? '';
-                  return _isTopLeague(league);
+                  return sport == 'soccer' || (sport.contains('football') && !sport.contains('american'));
                 }).toList();
 
                 final filteredMatches = matches.where((match) {
@@ -226,7 +192,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 }).toList();
 
                 if (filteredMatches.isEmpty) {
-                  return const Center(child: Text('Nincs a szűrésnek megfelelő mérkőzés.', style: TextStyle(fontSize: 13)));
+                  return const Center(child: Text('Nincs a keresésnek megfelelő mérkőzés.', style: TextStyle(fontSize: 13)));
                 }
 
                 final Map<String, List<dynamic>> groupedMatches = {};
