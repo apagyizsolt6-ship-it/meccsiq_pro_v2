@@ -48,13 +48,32 @@ class _MatchesScreenState extends State<MatchesScreen> {
             return const Center(child: Text('Nincsenek elérhető mérkőzések.'));
           }
 
-          return ListView(
-            children: const [
-              Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('StatPal API adatok sikeresen betöltve.', style: TextStyle(color: Colors.grey)),
-              ),
-            ],
+          final data = snapshot.data!;
+          // Itt nyerjük ki a meccsek listáját a JSON-ből (ha a kulcs pl. 'response' vagy 'data' vagy 'matches')
+          // Állítsd be a StatPal API szerkezete szerint a megfelelő kulcsot:
+          final matches = data['response'] ?? data['data'] ?? data['matches'] ?? [];
+
+          if (matches.isEmpty) {
+            return const Center(child: Text('Nincsenek élő mérkőzések jelenleg.'));
+          }
+
+          return ListView.builder(
+            itemCount: matches.length,
+            itemBuilder: (context, index) {
+              final match = matches[index];
+              // Példa mezők kiolvasására (cseréld le a Valódi StatPal kulcsokra, ha szükséges):
+              final homeTeam = match['home_team']?['name'] ?? match['homeTeam'] ?? 'Hazai csapat';
+              final awayTeam = match['away_team']?['name'] ?? match['awayTeam'] ?? 'Vendég csapat';
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ListTile(
+                  leading: const Icon(Icons.sports_soccer, color: Colors.blue),
+                  title: Text('$homeTeam vs $awayTeam', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Élő mérkőzés'),
+                ),
+              );
+            },
           );
         },
       ),
