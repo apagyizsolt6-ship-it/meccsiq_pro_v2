@@ -1,12 +1,3 @@
-/*
-===========================================
-MeccsIQ Pro v2.0
-Build: #002
-Version: v2.0.0
-File: profile_screen.dart
-===========================================
-*/
-
 import 'package:flutter/material.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -15,72 +6,96 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
         title: const Text(
-          'Profil',
+          'profil',
           style: TextStyle(
+            fontSize: 15,
             fontWeight: FontWeight.bold,
           ),
         ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0,
         centerTitle: true,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
-          SizedBox(height: 24),
-
-          Icon(
-            Icons.account_circle,
-            size: 90,
+        children: [
+          const SizedBox(height: 12),
+          const Center(
+            child: CircleAvatar(
+              radius: 45,
+              backgroundColor: Color(0xFFE2E8F0),
+              child: Icon(
+                Icons.person,
+                size: 50,
+                color: Colors.black54,
+              ),
+            ),
           ),
-
-          SizedBox(height: 16),
-
-          Center(
+          const SizedBox(height: 12),
+          const Center(
             child: Text(
-              'MeccsIQ Pro',
+              'meccsiq pro',
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
+                color: Colors.black87,
               ),
             ),
           ),
-
-          SizedBox(height: 8),
-
-          Center(
+          const SizedBox(height: 4),
+          const Center(
             child: Text(
-              'Version 2.0.0',
+              'version 2.0.0 build #002',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 11,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
-
-          SizedBox(height: 40),
-
-          ListTile(
-            leading: Icon(Icons.palette_outlined),
-            title: Text('Megjelenés'),
-            subtitle: Text('Világos / Sötét mód'),
-            trailing: Icon(Icons.chevron_right),
-          ),
-
-          Divider(),
-
-          ListTile(
-            leading: Icon(Icons.key_outlined),
-            title: Text('API beállítások'),
-            subtitle: Text('StatPal • TheSportsDB • SportMonks'),
-            trailing: Icon(Icons.chevron_right),
-          ),
-
-          Divider(),
-
-          ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('Névjegy'),
-            trailing: Icon(Icons.chevron_right),
+          const SizedBox(height: 24),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.palette_outlined, size: 20, color: Colors.blueAccent),
+                  title: const Text('megjelenés', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  subtitle: const Text('világos / sötét mód', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                  onTap: () {},
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: const Icon(Icons.key_outlined, size: 20, color: Colors.blueAccent),
+                  title: const Text('api beállítások', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  subtitle: const Text('statpal • thesportsdb • sportmonks', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                  onTap: () {},
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: const Icon(Icons.info_outline, size: 20, color: Colors.blueAccent),
+                  title: const Text('névjegy', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                  onTap: () {},
+                ),
+              ],
+            ),
           ),
         ],
       ),
