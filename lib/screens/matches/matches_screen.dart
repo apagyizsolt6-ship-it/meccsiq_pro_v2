@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import '../../services/sports_db_service.dart';
 
 class MatchesScreen extends StatefulWidget {
@@ -14,7 +15,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
   final SportsDbService _sportsDbService = SportsDbService();
   late Future<Map<String, dynamic>?> _matchesFuture;
   
-  // Visszaállítva a korábbi stabil tesztdátumra, de a naptárból bármikor szabadon változtatható
   DateTime _selectedDate = DateTime(2026, 6, 6);
   
   String _searchQuery = '';
@@ -26,6 +26,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
+    // Magyar naptár és helyi adatok inicializálása
+    initializeDateFormatting('hu_HU', null);
     _loadMatches();
   }
 
@@ -53,6 +55,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       initialDate: _selectedDate,
       firstDate: DateTime(2025, 1, 1),
       lastDate: DateTime(2028, 12, 31),
+      locale: const Locale('hu', 'HU'), // Magyar nyelvű naptár felugró
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -72,7 +75,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     });
   }
 
-  // Fordító a mérkőzés státuszok magyarítására
+  // Központi fordító a mérkőzés státuszok magyarítására
   String _translateStatus(String status) {
     final s = status.toUpperCase().trim();
     if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
@@ -127,7 +130,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       onPressed: () => _selectDate(context),
                       icon: const Icon(Icons.calendar_month, size: 16, color: Colors.blueAccent),
                       label: Text(
-                        DateFormat('yyyy. MMMM d.').format(_selectedDate),
+                        // Szigorúan magyar formátum és hónapnevek ('hu_HU')
+                        DateFormat('yyyy. MMMM d.', 'hu_HU').format(_selectedDate),
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
                       ),
                     ),
@@ -178,7 +182,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 final data = snapshot.data!;
                 final allEvents = data['events'] as List<dynamic>? ?? [];
 
-                // Biztonságos foci szűrés (minden focis esemény átmegy, nem vesznek el meccsek)
                 final matches = allEvents.where((match) {
                   final sport = match['strSport']?.toString().toLowerCase() ?? '';
                   return sport == 'soccer' || (sport.contains('football') && !sport.contains('american'));
@@ -221,7 +224,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             onTap: () {
                               setState(() {
                                 if (_collapsedLeagues.contains(leagueName)) {
-                                  _collapsedLeagues.remove(leagueName);
+                               T   _collapsedLeagues.remove(leagueName);
                                 } else {
                                   _collapsedLeagues.add(leagueName);
                                 }
