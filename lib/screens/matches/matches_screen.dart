@@ -26,7 +26,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
-    // Magyar naptár és helyi adatok inicializálása
     initializeDateFormatting('hu_HU', null);
     _loadMatches();
   }
@@ -55,7 +54,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       initialDate: _selectedDate,
       firstDate: DateTime(2025, 1, 1),
       lastDate: DateTime(2028, 12, 31),
-      locale: const Locale('hu', 'HU'), // Magyar nyelvű naptár felugró
+      locale: const Locale('hu', 'HU'),
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -75,7 +74,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
     });
   }
 
-  // Központi fordító a mérkőzés státuszok magyarítására
   String _translateStatus(String status) {
     final s = status.toUpperCase().trim();
     if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
@@ -130,7 +128,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       onPressed: () => _selectDate(context),
                       icon: const Icon(Icons.calendar_month, size: 16, color: Colors.blueAccent),
                       label: Text(
-                        // Szigorúan magyar formátum és hónapnevek ('hu_HU')
                         DateFormat('yyyy. MMMM d.', 'hu_HU').format(_selectedDate),
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
                       ),
@@ -224,7 +221,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                             onTap: () {
                               setState(() {
                                 if (_collapsedLeagues.contains(leagueName)) {
-                               T   _collapsedLeagues.remove(leagueName);
+                                  _collapsedLeagues.remove(leagueName);
                                 } else {
                                   _collapsedLeagues.add(leagueName);
                                 }
