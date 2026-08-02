@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MatchSimulationResult {
   final double homeWinProbability;
@@ -22,7 +23,7 @@ class MatchSimulationResult {
 }
 
 class AiSimulationService {
-  // IDE ÍRD BE A SAJÁT GOOGLE GEMINI API KULCSODAT
+  // Alapértelmezett tartalék API kulcs (ha a profilban nincs beállítva)
   static const String _geminiApiKey = 'ITT_LEGYEN_A_GEMINI_API_KULCSOD';
 
   // Monte Carlo motor (50 000 futtatás) - Csapatfüggő egyedi lambda értékekkel
@@ -113,20 +114,26 @@ class AiSimulationService {
     return (k - 1).toInt();
   }
 
-  // Valódi Google Gemini API hívás a szimulációs adatok alapján
+  // Valódi Google Gemini API hívás a mentett vagy alapértelmezett kulcs alapján
   static Future<String> getAiMatchAnalysis({
     required String homeTeam,
     required String awayTeam,
     required MatchSimulationResult simulation,
   }) async {
-    if (_geminiApiKey == 'ITT_LEGYEN_A_GEMINI_API_KULCSOD') {
-      return "Kérlek, add meg a Google Gemini API kulcsodat az `ai_simulation_service.dart` fájlban a valós AI elemzésekhez!";
+    // Kiolvassuk a Profilban elmentett Gemini API kulcsot
+    final prefs = await SharedPreferences.getInstance();
+    final savedKey = prefs.getString('gemini_key');
+    
+    final dynamicApiKey = (savedKey != null && savedKey.trim().isNotEmpty) ? savedKey.trim() : _geminiApiKey;
+
+    if (dynamicApiKey.isEmpty || dynamicApiKey == 'ITT_LEGYEN_A_GEMINI_API_KULCSOD') {
+      return "Kérlek, add meg a Google Gemini API kulcsodat a Profil menüpontban az AI elemzésekhez!";
     }
 
     try {
       final model = GenerativeModel(
         model: 'gemini-1.5-flash',
-        apiKey: _geminiApiKey,
+        apiKey: dynamicApiKey,
       );
 
       final prompt = '''
