@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../services/sports_db_service.dart';
 
 // ==========================================
-// RUGALMAS ÉS HELYES KÖZPONTI FORDÍTÓ
+// INTELLIGENS ÉS RUGALMAS FORDÍTÓ OSZTÁLY
 // ==========================================
 class AppTranslator {
   static String translateStatus(String status, String? timeStr) {
@@ -17,10 +17,8 @@ class AppTranslator {
     if (s == 'PEN') return 'Büntetők';
     if (s.contains('LIVE') || s.contains('IN_PLAY')) return 'Élő';
     
-    // Ha még nem kezdődött el (NS vagy bármilyen egyéb), de van időpont, azt írjuk ki
     if (s == 'NS' || s.isEmpty) {
       if (timeStr != null && timeStr.isNotEmpty) {
-        // Ha az időformátum pl. "19:00:00", levágjuk a másodpercet, hogy "19:00" legyen
         if (timeStr.length >= 5) {
           return timeStr.substring(0, 5);
         }
@@ -35,38 +33,49 @@ class AppTranslator {
   static String? getTranslatedLeague(String apiLeagueName) {
     final l = apiLeagueName.trim().toLowerCase();
 
+    // DEBUG: Írassuk ki a konzolra az összes bejövő ligát, hogy lássuk a pontos nevüket az API-ban!
+    debugPrint('API Liga érkezett: "$apiLeagueName"');
+
     // Nemzetközi kupák
     if (l.contains('champions league') || l.contains('bajnokok ligája')) return 'Bajnokok Ligája';
     if (l.contains('europa league')) return 'Európa Liga';
     if (l.contains('conference league')) return 'Konferencia Liga';
 
-    // Magyarország
-    if (l.contains('nb i') || l.contains('nb 1') || l.contains('otp bank liga')) return 'Magyarország - NB I';
-    if (l.contains('nb ii') || l.contains('nb 2')) return 'Magyarország - NB II';
+    // Magyarország (NB I, NB II, Kupa)
+    if (l.contains('nb i') || l.contains('nb 1') || l.contains('otp bank liga') || l.contains('hungary nb i')) return 'Magyarország - NB I';
+    if (l.contains('nb ii') || l.contains('nb 2') || l.contains('hungary nb ii')) return 'Magyarország - NB II';
     if (l.contains('magyar kupa')) return 'Magyarország - Magyar Kupa';
 
-    // Top 5 + Kupák
-    if (l.contains('premier league') && !l.contains('u18') && !l.contains('u21') && !l.contains('women')) return 'Anglia - Premier Liga';
-    if (l.contains('championship') && !l.contains('scottish')) return 'Anglia - Másodosztály (Championship)';
-    if (l.contains('fa cup')) return 'Anglia - FA Kupa';
-    if (l.contains('bundesliga') && !l.contains('austrian') && !l.contains('women')) return 'Németország - Bundesliga';
+    // Anglia
+    if (l.contains('premier league') && !l.contains('u18') && !l.contains('u21') && !l.contains('women') && !l.contains('egypt') && !l.contains('hong kong')) return 'Anglia - Premier Liga';
+    if (l.contains('championship') && !l.contains('scottish') && !l.contains('women')) return 'Anglia - Másodosztály (Championship)';
+    if (l == 'fa cup' || l == 'english fa cup') return 'Anglia - FA Kupa';
+
+    // Németország
+    if (l.contains('bundesliga') && !l.contains('austrian') && !l.contains('women') && !l.contains('2. bundesliga')) return 'Németország - Bundesliga';
     if (l.contains('2. bundesliga')) return 'Németország - 2. Bundesliga';
     if (l.contains('dfb pokal')) return 'Németország - Német Kupa';
-    if (l.contains('ligue 1') && !l.contains('women')) return 'Franciaország - Ligue 1';
+
+    // Franciaország
+    if (l.contains('ligue 1') && !l.contains('women') && !l.contains('tunisian')) return 'Franciaország - Ligue 1';
     if (l.contains('ligue 2')) return 'Franciaország - Ligue 2';
     if (l.contains('coupe de france')) return 'Franciaország - Francia Kupa';
+
+    // Olaszország
     if (l.contains('serie a') && !l.contains('brazil') && !l.contains('women')) return 'Olaszország - Serie A';
     if (l.contains('serie b') && !l.contains('brazil')) return 'Olaszország - Serie B';
     if (l.contains('coppa italia')) return 'Olaszország - Olasz Kupa';
-    if (l.contains('la liga') || l.contains('primera division spain')) return 'Spanyolország - La Liga';
+
+    // Spanyolország
+    if (l.contains('la liga') || l == 'primera division' || l.contains('spain primera division')) return 'Spanyolország - La Liga';
     if (l.contains('segunda division') && !l.contains('chile') && !l.contains('argentina')) return 'Spanyolország - 2. Osztály';
     if (l.contains('copa del rey')) return 'Spanyolország - Király Kupa';
 
-    // Többi ország a füzeted alapján
+    // További európai és világméretű ligák a listádról (biztonságos kulcsszavakkal)
     if (l.contains('primeira liga') || l.contains('portugal')) return 'Portugália - 1. Osztály';
     if (l.contains('liga portugal 2')) return 'Portugália - 2. Osztály';
-    if (l.contains('eredivisie') || (l.contains('netherlands') && l.contains('1'))) return 'Hollandia - 1. Osztály';
-    if (l.contains('eerste divisie') || (l.contains('netherlands') && l.contains('2'))) return 'Hollandia - 2. Osztály';
+    if (l.contains('eredivisie') || l.contains('netherlands 1')) return 'Hollandia - 1. Osztály';
+    if (l.contains('eerste divisie') || l.contains('netherlands 2')) return 'Hollandia - 2. Osztály';
     if (l.contains('belgian pro league') || l.contains('first division a')) return 'Belgium - 1. Osztály';
     if (l.contains('first division b')) return 'Belgium - 2. Osztály';
     if (l.contains('süper lig') || l.contains('turkey 1')) return 'Törökország - 1. Osztály';
@@ -79,7 +88,7 @@ class AppTranslator {
     if (l.contains('1st division') && l.contains('denmark')) return 'Dánia - 2. Osztály';
     if (l.contains('eliteserien')) return 'Norvégia - 1. Osztály';
     if (l.contains('1. divisjon')) return 'Norvégia - 2. Osztály';
-    if (l.contains('swiss super league') || (l.contains('switzerland') && l.contains('1'))) return 'Svájc - 1. Osztály';
+    if (l.contains('swiss super league') || l.contains('switzerland 1')) return 'Svájc - 1. Osztály';
     if (l.contains('challenge league')) return 'Svájc - 2. Osztály';
     if (l.contains('cyprus') && l.contains('division')) return 'Ciprus - 1. Osztály';
     if (l.contains('allsvenskan')) return 'Svédország - 1. Osztály';
@@ -115,7 +124,7 @@ class AppTranslator {
     if (l.contains('cymru') || l.contains('wales')) return 'Wales - 1. Osztály';
     if (l.contains('argentine') || l.contains('primera división')) return 'Argentína - 1. Osztály';
     if (l.contains('primera b nacional')) return 'Argentína - 2. Osztály';
-    if (l.contains('brazileiro') || l.contains('serie a') && l.contains('brazil')) return 'Brazília - 1. Osztály';
+    if (l.contains('brazileiro') || (l.contains('serie a') && l.contains('brazil'))) return 'Brazília - 1. Osztály';
     if (l.contains('serie b') && l.contains('brazil')) return 'Brazília - 2. Osztály';
     if (l.contains('liga mx') || l.contains('mexico')) return 'Mexikó - 1. Osztály';
     if (l.contains('categoría primera a') || l.contains('colombia')) return 'Kolumbia - 1. Osztály';
@@ -401,10 +410,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               final homeScore = match['intHomeScore'] ?? '-';
                               final awayScore = match['intAwayScore'] ?? '-';
                               final rawStatus = match['strStatus'] ?? match['strProgress'] ?? '';
-                              final timeStr = match['strTime']?.toString(); // Meccs időpontja (pl. 19:00:00)
+                              final timeStr = match['strTime']?.toString();
                               
                               final status = AppTranslator.translateStatus(rawStatus.toString(), timeStr);
-                              final isTime = status.contains(':'); // Ha időpont, más színnel/stílussal is kiírhatjuk
+                              final isTime = status.contains(':');
 
                               return Container(
                                 decoration: const BoxDecoration(
