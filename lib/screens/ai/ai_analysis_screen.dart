@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/ai_simulation_service.dart';
+import '../../services/ai_simulation_service.dart';
 
 class AiAnalysisScreen extends StatefulWidget {
   final String homeTeam;
