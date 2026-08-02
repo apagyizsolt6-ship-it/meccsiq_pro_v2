@@ -26,7 +26,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
-    initializeDateFormatting('hu_HU', null);
+    try {
+      initializeDateFormatting('hu_HU', null);
+    } catch (_) {}
     _loadMatches();
   }
 
@@ -48,6 +50,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     await _matchesFuture;
   }
 
+  // Stabilizált, nemfagyós naptár megnyitás
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -55,7 +58,21 @@ class _MatchesScreenState extends State<MatchesScreen> {
       firstDate: DateTime(2025, 1, 1),
       lastDate: DateTime(2028, 12, 31),
       locale: const Locale('hu', 'HU'),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.blueAccent,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black87,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
+    
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
@@ -74,6 +91,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     });
   }
 
+  // Központi magyarító (Translator) a státuszokhoz
   String _translateStatus(String status) {
     final s = status.toUpperCase().trim();
     if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
@@ -84,7 +102,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     if (s == 'ET') return 'Hosszabbítás';
     if (s == 'PEN') return 'Büntetők';
     if (s.contains('LIVE') || s.contains('IN_PLAY')) return 'Élő';
-    return status;
+    return s;
   }
 
   @override
