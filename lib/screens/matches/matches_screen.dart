@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:intl/date_symbol_data_local.dart';
 import '../../services/sports_db_service.dart';
 
 class MatchesScreen extends StatefulWidget {
@@ -26,9 +25,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
   @override
   void initState() {
     super.initState();
-    try {
-      initializeDateFormatting('hu_HU', null);
-    } catch (_) {}
     _loadMatches();
   }
 
@@ -50,27 +46,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
     await _matchesFuture;
   }
 
-  // Stabilizált, nemfagyós naptár megnyitás
+  // Stabil, garantáltan nem fagyós naptár hívás
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2025, 1, 1),
-      lastDate: DateTime(2028, 12, 31),
-      locale: const Locale('hu', 'HU'),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.blueAccent,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black87,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      lastDate: DateTime(2028, 12, 31);
     );
     
     if (picked != null && picked != _selectedDate) {
@@ -91,7 +73,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     });
   }
 
-  // Központi magyarító (Translator) a státuszokhoz
+  // Központi magyarító a státuszokhoz
   String _translateStatus(String status) {
     final s = status.toUpperCase().trim();
     if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
@@ -146,7 +128,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       onPressed: () => _selectDate(context),
                       icon: const Icon(Icons.calendar_month, size: 16, color: Colors.blueAccent),
                       label: Text(
-                        DateFormat('yyyy. MMMM d.', 'hu_HU').format(_selectedDate),
+                        DateFormat('yyyy. MM. dd.').format(_selectedDate),
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
                       ),
                     ),
@@ -279,8 +261,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               final awayTeam = match['strAwayTeam'] ?? 'Vendég';
                               final homeScore = match['intHomeScore'] ?? '-';
                               final awayScore = match['intAwayScore'] ?? '-';
-                              final rawStatus = match['strStatus'] ?? match['strProgress'] ?? 'FT';
-                              final status = _translateStatus(rawStatus);
+                              final rawStatus = match['strStatus'] ?? match['strProgress'] / 'FT';
+                              final status = _translateStatus(rawStatus.toString());
 
                               return Container(
                                 decoration: const BoxDecoration(
