@@ -7,20 +7,30 @@ import '../../services/sports_db_service.dart';
 // VÉGLEGESEN PONTOS KÖZPONTI FORDÍTÓ OSZTÁLY
 // ==========================================
 class AppTranslator {
-  static String translateStatus(String status, String? timeStr) {
+  static String translateStatus(String status, String? progress, String? timeStr) {
     final s = status.toUpperCase().trim();
+    final p = progress?.trim() ?? '';
+    
     if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
     if (s == 'HT') return 'Félidő';
-    if (s == '1H') return '1. félidő';
-    if (s == '2H') return '2. félidő';
-    if (s == 'ET') return 'Hosszabbítás';
-    if (s == 'PEN') return 'Büntetők';
-    if (s.contains('LIVE') || s.contains('IN_PLAY')) return 'Élő';
     
+    // Ha van élő játékidő / progress az API-ban (pl. "45", "90", "75'")
+    if (p.isNotEmpty && (s.contains('LIVE') || s.contains('IN_PLAY') || s == '1H' || s == '2H' || s == 'ET')) {
+      // Ha már van benne apostrof, visszaküldjük, ha csak szám, kiegészítjük '-nel
+      if (p.endsWith('\'')) return p;
+      return '$p\'';
+    }
+    
+    // Ha félidő van, de a progress-ben nincs benne
+    if (s == 'HT') return 'Félidő';
+    if (s == '1H') return '1\'';
+    if (s == '2H') return '46\'';
+    
+    // Kezdésre váró meccseknél pontos időpont kiírása
     if (s == 'NS' || s.isEmpty) {
       if (timeStr != null && timeStr.isNotEmpty) {
         if (timeStr.length >= 5) {
-          return timeStr.substring(0, 5);
+          return timeStr.substring(0, 5); // Pl: 19:00:00 -> 19:00
         }
         return timeStr;
       }
@@ -47,7 +57,7 @@ class AppTranslator {
     }
     if (l.contains('magyar kupa')) return 'Magyarország - Magyar Kupa';
 
-    // Anglia (Kizárva az alsóbb osztályú non-league / amatőr ligákat)
+    // Anglia
     if ((l.contains('premier league') || l == 'english premier league') && 
         !l.contains('canada') && !l.contains('egypt') && !l.contains('hong kong') && 
         !l.contains('wales') && !l.contains('malta') && !l.contains('non league') && 
@@ -412,10 +422,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               final homeScore = match['intHomeScore'] ?? '-';
                               final awayScore = match['intAwayScore'] ?? '-';
                               final rawStatus = match['strStatus'] ?? match['strProgress'] ?? '';
+                              final progress = match['strProgress']?.toString();
                               final timeStr = match['strTime']?.toString();
                               
-                              final status = AppTranslator.translateStatus(rawStatus.toString(), timeStr);
+                              final status = AppTranslator.translateStatus(rawStatus.toString(), progress, timeStr);
                               final isTime = status.contains(':');
+                              final isLiveMinute = status.endsWith('\'');
 
                               return Container(
                                 decoration: const BoxDecoration(
@@ -433,7 +445,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                           fontSize: 10,
                                           color: status == 'Vége' 
                                               ? Colors.grey 
-                                              : (isTime ? Colors.blueGrey : Colors.green),
+                                              : (isLiveMinute ? Colors.red : (isTime ? Colors.blueGrey : Colors.green)),
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
