@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:google_generative_ai/google_generative_ai.dart';
 
 class MatchSimulationResult {
   final double homeWinProbability;
@@ -21,19 +22,21 @@ class MatchSimulationResult {
 }
 
 class AiSimulationService {
+  // IDE ÍRD BE A SAJÁT GOOGLE GEMINI API KULCSODAT
+  static const String _geminiApiKey = 'ITT_LEGYEN_A_GEMINI_API_KULCSOD';
+
   // Monte Carlo motor (50 000 futtatás) - Csapatfüggő egyedi lambda értékekkel
   static MatchSimulationResult runMonteCarloSimulation({
     required String homeTeam,
     required String awayTeam,
     int simulations = 50000,
   }) {
-    // Egyedi "seed" generálása a csapatnevekből, hogy minden meccs teljesen más esélyeket kapjon!
+    // Egyedi "seed" generálása a csapatnevekből, hogy minden meccs teljesen más esélyeket kapjon
     int combinedHash = homeTeam.codeUnits.fold(0, (prev, element) => prev + element) +
         awayTeam.codeUnits.fold(0, (prev, element) => prev + element);
     
     final random = Random(combinedHash);
 
-    // Csapatfüggő gólátlagok generálása (0.9 és 2.4 közötti értékek)
     double homeLambda = 1.0 + (random.nextDouble() * 1.3);
     double awayLambda = 0.8 + (random.nextDouble() * 1.2);
 
@@ -65,7 +68,6 @@ class AiSimulationService {
       scoreFrequency[scoreKey] = (scoreFrequency[scoreKey] ?? 0) + 1;
     }
 
-    // Leggyakoribb eredmény keresése
     String mostLikelyScore = '1:1';
     int maxFreq = -1;
     scoreFrequency.forEach((score, freq) {
@@ -75,7 +77,7 @@ class AiSimulationService {
       }
     });
 
-    // Logikai korrekció, hogy a győzelmi arány és a pontszám összhangban legyen
+    // Logikai korrekció a győzelmi arány és a pontszám összhangjához
     List<String> parts = mostLikelyScore.split(':');
     int hGoals = int.parse(parts[0]);
     int aGoals = int.parse(parts[1]);
@@ -111,17 +113,41 @@ class AiSimulationService {
     return (k - 1).toInt();
   }
 
-  // AI Szakértői elemzés szövegezése az egyedi adatok alapján
+  // Valódi Google Gemini API hívás a szimulációs adatok alapján
   static Future<String> getAiMatchAnalysis({
     required String homeTeam,
     required String awayTeam,
     required MatchSimulationResult simulation,
   }) async {
-    String favorite = simulation.homeWinProbability > simulation.awayWinProbability ? homeTeam : awayTeam;
-    double maxProb = max(simulation.homeWinProbability, simulation.awayWinProbability);
+    if (_geminiApiKey == 'ITT_LEGYEN_A_GEMINI_API_KULCSOD') {
+      return "Kérlek, add meg a Google Gemini API kulcsodat az `ai_simulation_service.dart` fájlban a valós AI elemzésekhez!";
+    }
 
-    return "A(z) ${simulation.totalSimulations} darab Monte Carlo szimuláció mélyreható elemzése alapján a mérkőzés esélyese a(z) $favorite (${maxProb.toStringAsFixed(1)}%). "
-        "A hazai csapat várható gólátlaga ${simulation.averageHomeGoals.toStringAsFixed(2)}, míg a vendégeké ${simulation.averageAwayGoals.toStringAsFixed(2)}. "
-        "A legvalószínűbb pontos végeredmény a szimulációk alapján: ${simulation.mostLikelyScore}.";
+    try {
+      final model = GenerativeModel(
+        model: 'gemini-1.5-flash',
+        apiKey: _geminiApiKey,
+      );
+
+      final prompt = '''
+Te egy profi futball-elemző és statisztikus vagy. Kérlek, írj egy tömör, de izgalmas és szakértői elemzést (max 3-4 mondatban, magyar nyelven) a következő mérkőzésről a 50 000 futtatásos Monte Carlo szimuláció adatai alapján:
+- Hazai csapat: $homeTeam
+- Vendég csapat: $awayTeam
+- Hazai győzelem esélye: ${simulation.homeWinProbability.toStringAsFixed(1)}%
+- Döntetlen esélye: ${simulation.drawProbability.toStringAsFixed(1)}%
+- Vendég győzelem esélye: ${simulation.awayWinProbability.toStringAsFixed(1)}%
+- Várható gólok: $homeTeam (${simulation.averageHomeGoals.toStringAsFixed(2)}) - $awayTeam (${simulation.averageAwayGoals.toStringAsFixed(2)})
+- Legvalószínűbb pontos végeredmény: ${simulation.mostLikelyScore}
+
+Írd meg, hogy ki az esélyes, mire érdemes figyelni, és miért ez a legvalószínűbb kimenetel!
+''';
+
+      final content = [Content.text(prompt)];
+      final response = await model.generateContent(content);
+
+      return response.text ?? "Nem sikerült elemzést generálni.";
+    } catch (e) {
+      return "Hiba történt az AI elemzés lekérése közben: $e";
+    }
   }
 }
