@@ -132,7 +132,7 @@ class AiSimulationService {
 
     try {
       final model = GenerativeModel(
-        model: 'gemini-1.5-flash',
+        model: 'gemini-pro',
         apiKey: dynamicApiKey,
       );
 
