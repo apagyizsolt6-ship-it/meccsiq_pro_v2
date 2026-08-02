@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MatchSimulationResult {
@@ -23,16 +25,18 @@ class MatchSimulationResult {
 }
 
 class AiSimulationService {
-  // Alapértelmezett tartalék API kulcs (ha a profilban nincs beállítva)
   static const String _geminiApiKey = 'ITT_LEGYEN_A_GEMINI_API_KULCSOD';
+  
+  // 1. Memória gyorsítótár (cache) az AI elemzésekhez, hogy ne hívja le kétszer ugyanazt
+  static final Map<String, String> _analysisCache = {};
 
-  // Monte Carlo motor (50 000 futtatás) - Csapatfüggő egyedi lambda értékekkel
   static MatchSimulationResult runMonteCarloSimulation({
     required String homeTeam,
     required String awayTeam,
     int simulations = 50000,
   }) {
-    // Egyedi "seed" generálása a csapatnevekből, hogy minden meccs teljesen más esélyeket kapjon
+    // Statpal API előkészítési hely (ha később bekapcsolod a valós adatok lehívását)
+    
     int combinedHash = homeTeam.codeUnits.fold(0, (prev, element) => prev + element) +
         awayTeam.codeUnits.fold(0, (prev, element) => prev + element);
     
@@ -78,7 +82,6 @@ class AiSimulationService {
       }
     });
 
-    // Logikai korrekció a győzelmi arány és a pontszám összhangjához
     List<String> parts = mostLikelyScore.split(':');
     int hGoals = int.parse(parts[0]);
     int aGoals = int.parse(parts[1]);
@@ -102,7 +105,6 @@ class AiSimulationService {
     );
   }
 
-  // Poisson eloszlás segédfüggvény
   static int _poissonRandom(double lambda, Random random) {
     double L = exp(-lambda);
     double k = 0;
@@ -114,13 +116,18 @@ class AiSimulationService {
     return (k - 1).toInt();
   }
 
-  // Valódi Google Gemini API hívás a mentett vagy alapértelmezett kulcs alapján
   static Future<String> getAiMatchAnalysis({
     required String homeTeam,
     required String awayTeam,
     required MatchSimulationResult simulation,
   }) async {
-    // Kiolvassuk a Profilban elmentett Gemini API kulcsot
+    final cacheKey = '${homeTeam}_$awayTeam';
+    
+    // 2. Gyorsítótár ellenőrzése
+    if (_analysisCache.containsKey(cacheKey)) {
+      return _analysisCache[cacheKey]!;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final savedKey = prefs.getString('gemini_key');
     
@@ -151,10 +158,25 @@ Te egy profi futball-elemző és statisztikus vagy. Kérlek, írj egy tömör, d
 
       final content = [Content.text(prompt)];
       final response = await model.generateContent(content);
+      final text = response.text;
 
-      return response.text ?? "Nem sikerült elemzést generálni.";
-    } catch (e) {
-      return "Hiba történt az AI elemzés lekérése közben: $e";
+      if (text != null && text.isNotEmpty) {
+        _analysisCache[cacheKey] = text; // Mentés a cache-be
+        return text;
+      }
+      
+      // 3. Hibatűrő fallback, ha üres jönne vissza
+      return _generateFallbackAnalysis(homeTeam, awayTeam, simulation);
+    } catch (_) {
+      // 3. Hibatűrő fallback hálózati hiba esetén
+      return _generateFallbackAnalysis(homeTeam, awayTeam, simulation);
     }
+  }
+
+  static String _generateFallbackAnalysis(String homeTeam, String awayTeam, MatchSimulationResult simulation) {
+    String favorite = simulation.homeWinProbability > simulation.awayWinProbability ? homeTeam : awayTeam;
+    double favProb = simulation.homeWinProbability > simulation.awayWinProbability ? simulation.homeWinProbability : simulation.awayWinProbability;
+    
+    return "A 50 000 futtatásos Monte Carlo szimuláció alapján a meccs esélyese a(z) $favorite (${favProb.toStringAsFixed(1)}%). A legvalószínűbb végeredmény a(z) ${simulation.mostLikelyScore}, a várható gólok száma pedig $homeTeam (${simulation.averageHomeGoals.toStringAsFixed(2)}) – $awayTeam (${simulation.averageAwayGoals.toStringAsFixed(2)}) körül alakul.";
   }
 }
