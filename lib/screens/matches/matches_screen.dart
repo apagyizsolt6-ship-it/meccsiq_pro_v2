@@ -2,62 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/sports_db_service.dart';
+import '../utils/app_translator.dart'; // Itt hívjuk be a központi fordítót
 
-// ==========================================
-// KÖZPONTI FORDÍTÓ OSZTÁLY (AppTranslator)
-// ==========================================
-class AppTranslator {
-  // Mérkőzés státuszok központi fordítása
-  static String translateStatus(String status) {
-    final s = status.toUpperCase().trim();
-    if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
-    if (s == 'HT') return 'Félidő';
-    if (s == 'NS') return 'Kezdésre vár';
-    if (s == '1H') return '1. félidő';
-    if (s == '2H') return '2. félidő';
-    if (s == 'ET') return 'Hosszabbítás';
-    if (s == 'PEN') return 'Büntetők';
-    if (s.contains('LIVE') || s.contains('IN_PLAY')) return 'Élő';
-    return s;
-  }
-
-  // Bajnokságnevek központi fordítása és szépítése
-  static String translateLeague(String leagueName) {
-    String l = leagueName.trim();
-    
-    final translations = {
-      'International Friendlies': 'Nemzetközi Felkészülési Mérkőzések',
-      'Swedish Allsvenskan': 'Svéd 1. osztály (Allsvenskan)',
-      'Norwegian Eliteserien': 'Norvég 1. osztály (Eliteserien)',
-      'Argentinian Primera Division': 'Argentin 1. osztály',
-      'Argentinian Primera B Nacional': 'Argentin 2. osztály',
-      'Finnish Veikkausliiga': 'Finn 1. osztály (Veikkausliiga)',
-      'Canadian Premier League': 'Kanadai Premier Liga',
-      'Icelandic Úrvalsdeild Karla': 'Izlandi 1. osztály',
-      'Chilean Primera Division': 'Chilei 1. osztály',
-      'South Korean K League 1': 'Dél-koreai 1. osztály',
-      'South Korean K League 2': 'Dél-koreai 2. osztály',
-      'Algerian Ligue 1': 'Algériai 1. osztály',
-      'MLS Next Pro': 'USA - MLS Next Pro',
-      'American Major League Soccer': 'USA - MLS',
-    };
-
-    if (translations.containsKey(l)) {
-      return translations[l]!;
-    }
-
-    l = l.replaceAll('Premier Division', 'Premier Liga');
-    l = l.replaceAll('First Division', '1. Osztály');
-    l = l.replaceAll('Second Division', '2. Osztály');
-    l = l.replaceAll('Division 1', '1. Divízió');
-    
-    return l;
-  }
-}
-
-// ==========================================
-// KÉPERNYŐ
-// ==========================================
 class MatchesScreen extends StatefulWidget {
   const MatchesScreen({super.key});
 
@@ -245,7 +191,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 final Map<String, List<dynamic>> groupedMatches = {};
                 for (var match in filteredMatches) {
                   final rawLeague = match['strLeague'] ?? 'Egyéb bajnokság';
-                  final league = AppTranslator.translateLeague(rawLeague); // Központi fordító használata
+                  final league = AppTranslator.translateLeague(rawLeague);
                   groupedMatches.putIfAbsent(league, () => []).add(match);
                 }
 
@@ -310,7 +256,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               final homeScore = match['intHomeScore'] ?? '-';
                               final awayScore = match['intAwayScore'] ?? '-';
                               final rawStatus = match['strStatus'] ?? match['strProgress'] ?? 'FT';
-                              final status = AppTranslator.translateStatus(rawStatus.toString()); // Központi státusz fordító
+                              final status = AppTranslator.translateStatus(rawStatus.toString());
 
                               return Container(
                                 decoration: const BoxDecoration(
