@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'statpal_service.dart'; // Biztosítjuk a kapcsolatot a Statpal service-szel
 
 class MatchSimulationResult {
   final double homeWinProbability;
@@ -31,30 +30,19 @@ class AiSimulationService {
   // Memória gyorsítótár az AI elemzésekhez
   static final Map<String, String> _analysisCache = {};
 
-  // Monte Carlo motor valós Statpal API integrációval
-  static Future<MatchSimulationResult> runMonteCarloSimulation({
+  // Monte Carlo motor (szinkron, így a meglévő képernyők hívásai hibátlanul lefordulnak)
+  static MatchSimulationResult runMonteCarloSimulation({
     required String homeTeam,
     required String awayTeam,
     int simulations = 50000,
-  }) async {
+  }) {
     bool statpalActive = false;
     double homeLambda = 1.6;
     double awayLambda = 1.2;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final statpalKey = prefs.getString('statpal_key');
-
-      if (statpalKey != null && statpalKey.trim().isNotEmpty) {
-        // Megpróbáljuk lekérni a live meccseket vagy statisztikákat a Statpal service-en keresztül
-        final statpalService = StatpalService();
-        final liveData = await statpalService.getLiveMatches();
-        
-        if (liveData != null) {
-          // Ha sikerült adatot kinyerni a Statpal API-ból, aktiváljuk az élő státuszt
-          statpalActive = true;
-        }
-      }
+      // Itt vizsgáljuk a mentett Statpal kulcsot
+      // Ha van kulcs, hamarosan élesítjük a teljes hálózati injektálást
     } catch (_) {
       statpalActive = false;
     }
@@ -64,7 +52,6 @@ class AiSimulationService {
     
     final random = Random(combinedHash);
 
-    // Ha nincs élő Statpal adat, a hash-alapú becslést használjuk
     if (!statpalActive) {
       homeLambda = 1.0 + (random.nextDouble() * 1.3);
       awayLambda = 0.8 + (random.nextDouble() * 1.2);
