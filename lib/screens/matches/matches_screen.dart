@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../services/sports_db_service.dart';
 
 // ==========================================
-// TELJES KÖRŰEN KITERJESZTETT ÉS PONTOS FORDÍTÓ
+// VÉGLEGESEN SZIGORÍTOTT FORDÍTÓ OSZTÁLY
 // ==========================================
 class AppTranslator {
   static String translateStatus(String status, String? progress, String? timeStr) {
@@ -39,7 +39,7 @@ class AppTranslator {
   static String? getTranslatedLeague(String apiLeagueName) {
     final l = apiLeagueName.trim().toLowerCase();
 
-    // Szigorú feketelista a nem kívánt kontinensek/női/utánpótlás ligák kizárására
+    // 1. KIZÁRÁSOK (Női, utánpótlás, dél-amerikai/közép-amerikai tévesztések)
     if (l.contains('women') || l.contains('u18') || l.contains('u21') || l.contains('u20') || l.contains('u19') ||
         l.contains('ecuador') || l.contains('guatemala') || l.contains('venezuela') || 
         l.contains('honduras') || l.contains('el salvador') || l.contains('nicaragua') || 
@@ -49,131 +49,119 @@ class AppTranslator {
       return null;
     }
 
-    // ==========================================
-    // NEMZETKÖZI KUPÁK
-    // ==========================================
-    if (l.contains('champions league') && !l.contains('caf') && !l.contains('afc')) return 'Bajnokok Ligája';
-    if (l.contains('europa league') && !l.contains('conference')) return 'Európa Liga';
-    if (l.contains('conference league')) return 'Konferencia Liga';
+    // 2. PONTOS ÉS EGYEDI MEGFELELTETÉS (Nincs félreértés)
+    
+    // Nemzetközi kupák
+    if (l == 'uefa champions league' || l == 'champions league') return 'Bajnokok Ligája';
+    if (l == 'uefa europa league' || l == 'europa league') return 'Európa Liga';
+    if (l == 'uefa conference league' || l == 'conference league' || l == 'europa conference league') return 'Konferencia Liga';
 
-    // ==========================================
-    // MAGYARORSZÁG
-    // ==========================================
-    if ((l.contains('nb i') || l.contains('nb 1') || l.contains('otp bank liga') || l.contains('hungarian nb i')) && !l.contains('ii') && !l.contains('2')) {
-      return 'Magyarország - NB I';
-    }
-    if (l.contains('nb ii') || l.contains('nb 2') || l.contains('merkantil') || l.contains('hungarian nb ii')) {
-      return 'Magyarország - NB II';
-    }
-    if (l.contains('magyar kupa')) return 'Magyarország - Magyar Kupa';
+    // Magyarország
+    if (l == 'hungarian nb i' || l == 'nb i' || l == 'otp bank liga') return 'Magyarország - NB I';
+    if (l == 'hungarian nb ii' || l == 'nb ii' || l == 'merkantil bank liga') return 'Magyarország - NB II';
+    if (l == 'hungarian cup' || l == 'magyar kupa') return 'Magyarország - Magyar Kupa';
 
-    // ==========================================
-    // TOP LIGÁK ÉS KUPÁK
-    // ==========================================
-    if (l.contains('english premier league') || (l.contains('premier league') && !l.contains('egypt') && !l.contains('hong kong') && !l.contains('wales') && !l.contains('malta') && !l.contains('non league') && !l.contains('div') && !l.contains('southern') && !l.contains('isthmian'))) {
-      return 'Anglia Premier Liga';
-    }
-    if (l.contains('english championship') || (l.contains('championship') && !l.contains('scottish') && !l.contains('usl'))) {
-      return 'Anglia Championship';
-    }
-    if (l.contains('fa cup')) return 'Anglia FA Kupa';
+    // Anglia
+    if (l == 'english premier league') return 'Anglia Premier Liga';
+    if (l == 'english championship') return 'Anglia Championship';
+    if (l == 'english fa cup' || l == 'fa cup') return 'Anglia FA Kupa';
 
-    if (l.contains('german bundesliga') || (l.contains('bundesliga') && !l.contains('austrian') && !l.contains('2.'))) {
-      return 'Németország Bundesliga';
-    }
-    if (l.contains('2. bundesliga')) return 'Németország 2. Bundesliga';
-    if (l.contains('dfb pokal')) return 'Németország Német Kupa';
+    // Németország
+    if (l == 'german bundesliga') return 'Németország Bundesliga';
+    if (l == 'german 2. bundesliga') return 'Németország 2. Bundesliga';
+    if (l == 'german dfb pokal') return 'Németország Német Kupa';
 
-    if (l.contains('la liga') || l.contains('primera division') && l.contains('spain')) return 'Spanyolország La Liga';
-    if (l.contains('segunda division') && (l.contains('spain') || (!l.contains('chile') && !l.contains('argentina')))) {
-      return 'Spanyolország 2. Osztály';
-    }
-    if (l.contains('copa del rey')) return 'Spanyolország Király Kupa';
+    // Spanyolország
+    if (l == 'spanish la liga' || l == 'spain primera division') return 'Spanyolország La Liga';
+    if (l == 'spanish segunda division') return 'Spanyolország 2. Osztály';
+    if (l == 'spanish copa del rey') return 'Spanyolország Király Kupa';
 
-    if (l.contains('italian serie a') || (l.contains('serie a') && !l.contains('brazil'))) return 'Olaszország Serie A';
-    if (l.contains('italian serie b') || (l.contains('serie b') && !l.contains('brazil'))) return 'Olaszország Serie B';
-    if (l.contains('coppa italia')) return 'Olaszország Olasz Kupa';
+    // Olaszország
+    if (l == 'italian serie a') return 'Olaszország Serie A';
+    if (l == 'italian serie b') return 'Olaszország Serie B';
+    if (l == 'italian coppa italia') return 'Olaszország Olasz Kupa';
 
-    if (l.contains('french ligue 1') || (l.contains('ligue 1') && !l.contains('tunisian'))) return 'Franciaország Ligue 1';
-    if (l.contains('french ligue 2') || l.contains('ligue 2')) return 'Franciaország Ligue 2';
-    if (l.contains('coupe de france')) return 'Franciaország Francia Kupa';
+    // Franciaország
+    if (l == 'french ligue 1') return 'Franciaország Ligue 1';
+    if (l == 'french ligue 2') return 'Franciaország Ligue 2';
+    if (l == 'french coupe de france') return 'Franciaország Francia Kupa';
 
-    // ==========================================
-    // KÉRT SPECIFIKUS BAJNOKSÁGOK ÉS TÖBBiek
-    // ==========================================
-    if (l.contains('danish superliga') || (l.contains('superliga') && l.contains('denmark'))) return 'Dánia Superliga';
-    if (l.contains('1st division') && (l.contains('denmark') || l.contains('danish'))) return 'Dánia 1. osztály';
+    // Dánia
+    if (l == 'danish superliga') return 'Dánia Superliga';
+    if (l == 'danish 1st division') return 'Dánia 1. osztály';
 
-    if (l.contains('ekstraklasa') || (l.contains('poland') && l.contains('1'))) return 'Lengyelország Ekstraklasa';
-    if (l.contains('i liga') && (l.contains('poland') || l.contains('polish'))) return 'Lengyelország 1. osztály';
+    // Lengyelország
+    if (l == 'polish ekstraklasa') return 'Lengyelország Ekstraklasa';
+    if (l == 'polish i liga') return 'Lengyelország 1. osztály';
 
-    if (l.contains('chinese super league') || (l.contains('super league') && l.contains('china'))) return 'Kína Szuperliga';
+    // Kína
+    if (l == 'chinese super league') return 'Kína Szuperliga';
 
-    // További országok szabványosított elnevezései
-    if (l.contains('primeira liga') || l.contains('portugal')) return 'Portugália 1. Osztály';
-    if (l.contains('liga portugal 2')) return 'Portugália 2. Osztály';
-    if (l.contains('eredivisie') || l.contains('netherlands 1')) return 'Hollandia 1. Osztály';
-    if (l.contains('eerste divisie') || l.contains('netherlands 2')) return 'Hollandia 2. Osztály';
-    if (l.contains('belgian pro league') || l.contains('first division a')) return 'Belgium 1. Osztály';
-    if (l.contains('first division b')) return 'Belgium 2. Osztály';
-    if (l.contains('süper lig') || l.contains('turkey')) return 'Törökország 1. Osztály';
-    if (l.contains('1. lig') && l.contains('turkey')) return 'Törökország 2. Osztály';
-    if (l.contains('czech')) return 'Csehország 1. Osztály';
+    // Egyéb országok (csak pontos hivatalos nevek alapján)
+    if (l == 'portuguese primeira liga') return 'Portugália 1. Osztály';
+    if (l == 'portuguese segunda liga') return 'Portugália 2. Osztály';
+    if (l == 'dutch eredivisie') return 'Hollandia 1. Osztály';
+    if (l == 'dutch eerste divisie') return 'Hollandia 2. Osztály';
+    if (l == 'belgian pro league') return 'Belgium 1. Osztály';
+    if (l == 'belgian first division b') return 'Belgium 2. Osztály';
+    if (l == 'turkish süper lig') return 'Törökország 1. Osztály';
+    if (l == 'turkish 1. lig') return 'Törökország 2. Osztály';
+    if (l == 'czech first league') return 'Csehország 1. Osztály';
     if (l.contains('super league greece')) return 'Görögország 1. Osztály';
-    if (l.contains('eliteserien')) return 'Norvégia 1. Osztály';
-    if (l.contains('1. divisjon')) return 'Norvégia 2. Osztály';
-    if (l.contains('swiss super league')) return 'Svájc 1. Osztály';
-    if (l.contains('challenge league')) return 'Svájc 2. Osztály';
-    if (l.contains('cyprus')) return 'Ciprus 1. Osztály';
-    if (l.contains('allsvenskan')) return 'Svédország 1. Osztály';
-    if (l.contains('superettan')) return 'Svédország 2. Osztály';
-    if (l.contains('scottish premiership')) return 'Skócia 1. Osztály';
-    if (l.contains('scottish championship')) return 'Skócia 2. Osztály';
-    if (l.contains('austrian bundesliga')) return 'Ausztria 1. Osztály';
-    if (l.contains('2. liga') && l.contains('austria')) return 'Ausztria 2. Osztály';
-    if (l.contains('liga i') && !l.contains('ii')) return 'Románia 1. Osztály';
-    if (l.contains('liga ii')) return 'Románia 2. Osztály';
-    if (l.contains('hnl') || l.contains('croatian')) return 'Horvátország 1. Osztály';
-    if (l.contains('slovenian')) return 'Szlovénia 1. Osztály';
-    if (l.contains('ukrainian')) return 'Ukrajna 1. Osztály';
-    if (l.contains('israel')) return 'Izrael 1. Osztály';
+    if (l == 'norwegian eliteserien') return 'Norvégia 1. Osztály';
+    if (l == 'norwegian 1. divisjon') return 'Norvégia 2. Osztály';
+    if (l == 'swiss super league') return 'Svájc 1. Osztály';
+    if (l == 'swiss challenge league') return 'Svájc 2. Osztály';
+    if (l == 'cypriot first division') return 'Ciprus 1. Osztály';
+    if (l == 'swedish allsvenskan') return 'Svédország 1. Osztály';
+    if (l == 'swedish superettan') return 'Svédország 2. Osztály';
+    if (l == 'scottish premiership') return 'Skócia 1. Osztály';
+    if (l == 'scottish championship') return 'Skócia 2. Osztály';
+    if (l == 'austrian bundesliga') return 'Ausztria 1. Osztály';
+    if (l == 'austrian 2. liga') return 'Ausztria 2. Osztály';
+    if (l == 'romanian liga i') return 'Románia 1. Osztály';
+    if (l == 'romanian liga ii') return 'Románia 2. Osztály';
+    if (l.contains('croatian') && l.contains('hnl')) return 'Horvátország 1. Osztály';
+    if (l.contains('slovenian prvaliga')) return 'Szlovénia 1. Osztály';
+    if (l.contains('ukrainian premier league')) return 'Ukrajna 1. Osztály';
+    if (l.contains('israeli premier league')) return 'Izrael 1. Osztály';
     if (l.contains('league of ireland')) return 'Írország 1. Osztály';
-    if (l.contains('armenian')) return 'Örményország 1. Osztály';
-    if (l.contains('kosovo')) return 'Koszovó 1. Osztály';
-    if (l.contains('bosnia')) return 'Bosznia-Hercegovina 1. Osztály';
-    if (l.contains('virsliga')) return 'Lettország 1. Osztály';
-    if (l.contains('veikkausliiga')) return 'Finnország 1. Osztály';
-    if (l.contains('ykkönen')) return 'Finnország 2. Osztály';
-    if (l.contains('kazakhstan')) return 'Kazahsztán 1. Osztály';
-    if (l.contains('faroe islands')) return 'Feröer-szigetek 1. Osztály';
-    if (l.contains('macedonian')) return 'Észak-Macedónia 1. Osztály';
-    if (l.contains('moldova')) return 'Moldova 1. Osztály';
-    if (l.contains('albania')) return 'Albánia 1. Osztály';
-    if (l.contains('belarus')) return 'Fehéroroszország 1. Osztály';
-    if (l.contains('a lyga')) return 'Litvánia 1. Osztály';
-    if (l.contains('maltese')) return 'Málta 1. Osztály';
-    if (l.contains('meistriliiga')) return 'Észtország 1. Osztály';
-    if (l.contains('andorra')) return 'Andorra 1. Osztály';
-    if (l.contains('georgia')) return 'Grúzia 1. Osztály';
-    if (l.contains('cymru')) return 'Wales 1. Osztály';
-    if (l.contains('argentine')) return 'Argentína 1. Osztály';
-    if (l.contains('primera b nacional')) return 'Argentína 2. Osztály';
-    if (l.contains('brasileiro')) return 'Brazília 1. Osztály';
-    if (l.contains('serie b') && l.contains('brazil')) return 'Brazília 2. Osztály';
+    if (l.contains('armenian premier league')) return 'Örményország 1. Osztály';
+    if (l.contains('kosovo') && l.contains('superliga')) return 'Koszovó 1. Osztály';
+    if (l.contains('bosnian') && l.contains('premijer liga')) return 'Bosznia-Hercegovina 1. Osztály';
+    if (l.contains('latvian') && l.contains('virsliga')) return 'Lettország 1. Osztály';
+    if (l == 'finnish veikkausliiga') return 'Finnország 1. Osztály';
+    if (l == 'finnish ykkönen') return 'Finnország 2. Osztály';
+    if (l.contains('kazakhstan premier league')) return 'Kazahsztán 1. Osztály';
+    if (l.contains('faroe islands premier league')) return 'Feröer-szigetek 1. Osztály';
+    if (l.contains('macedonian first football league')) return 'Észak-Macedónia 1. Osztály';
+    if (l.contains('moldovan')) return 'Moldova 1. Osztály';
+    if (l.contains('albanian superliga')) return 'Albánia 1. Osztály';
+    if (l.contains('belarusian premier league')) return 'Fehéroroszország 1. Osztály';
+    if (l.contains('lithuanian a lyga')) return 'Litvánia 1. Osztály';
+    if (l.contains('maltese premier league')) return 'Málta 1. Osztály';
+    if (l.contains('estonian meistriliiga')) return 'Észtország 1. Osztály';
+    if (l.contains('andorran')) return 'Andorra 1. Osztály';
+    if (l.contains('georgian erovnuli liga')) return 'Grúzia 1. Osztály';
+    if (l.contains('cymru premier')) return 'Wales 1. Osztály';
+    if (l.contains('argentine') && l.contains('primera')) return 'Argentína 1. Osztály';
+    if (l.contains('argentinian') && l.contains('b nacional')) return 'Argentína 2. Osztály';
+    if (l == 'brazilian serie a') return 'Brazília 1. Osztály';
+    if (l == 'brazilian serie b') return 'Brazília 2. Osztály';
     if (l.contains('liga mx')) return 'Mexikó 1. Osztály';
-    if (l.contains('colombia')) return 'Kolumbia 1. Osztály';
+    if (l.contains('colombian')) return 'Kolumbia 1. Osztály';
     if (l.contains('major league soccer') || l == 'mls') return 'USA 1. Osztály';
     if (l.contains('j1 league')) return 'Japán 1. Osztály';
     if (l.contains('k league 1')) return 'Dél-Korea 1. Osztály';
-    if (l.contains('iran')) return 'Irán 1. Osztály';
-    if (l.contains('egypt')) return 'Egyiptom 1. Osztály';
-    if (l.contains('nigeria')) return 'Nigéria 1. Osztály';
+    if (l.contains('iranian')) return 'Irán 1. Osztály';
+    if (l.contains('egyptian premier league')) return 'Egyiptom 1. Osztály';
+    if (l.contains('nigerian')) return 'Nigéria 1. Osztály';
     if (l.contains('tunisian')) return 'Tunézia 1. Osztály';
-    if (l.contains('qatar')) return 'Katar 1. Osztály';
-    if (l.contains('saudi')) return 'Szaúd-Arábia 1. Osztály';
+    if (l.contains('qatar stars league')) return 'Katar 1. Osztály';
+    if (l.contains('saudi pro league')) return 'Szaúd-Arábia 1. Osztály';
     if (l.contains('philippines')) return 'Fülöp-szigetek 1. Osztály';
     if (l.contains('indian super league')) return 'India 1. Osztály';
-    if (l.contains('hong kong')) return 'Hongkong 1. Osztály';
+    if (l.contains('hong kong premier league')) return 'Hongkong 1. Osztály';
 
     return null;
   }
