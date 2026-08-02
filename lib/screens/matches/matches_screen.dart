@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/sports_db_service.dart';
+import '../ai/ai_analysis_screen.dart'; // Importáljuk az AI elemző képernyőt
 
 // ==========================================
 // VÉGLEGESEN SZIGORÍTOTT FORDÍTÓ OSZTÁLY
@@ -438,60 +439,80 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               final isTime = status.contains(':');
                               final isLiveMinute = status.endsWith('\'');
 
-                              return Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
-                                ),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 45,
-                                      child: Text(
-                                        status,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: status == 'Vége' 
-                                              ? Colors.grey 
-                                              : (isLiveMinute ? Colors.red : (isTime ? Colors.blueGrey : Colors.green)),
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                              return InkWell(
+                                onTap: () {
+                                  // Navigáció az AI & Monte Carlo elemzéshez erre a meccsre
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => AiAnalysisScreen(
+                                        homeTeam: homeTeam,
+                                        awayTeam: awayTeam,
+                                        leagueName: leagueName,
                                       ),
                                     ),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                  );
+                                },
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 45,
+                                        child: Text(
+                                          status,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: status == 'Vége' 
+                                                ? Colors.grey 
+                                                : (isLiveMinute ? Colors.red : (isTime ? Colors.blueGrey : Colors.green)),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              homeTeam,
+                                              style: const TextStyle(fontSize: 11.5, color: Colors.black87, fontWeight: FontWeight.w500),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 1),
+                                            Text(
+                                              awayTeam,
+                                              style: const TextStyle(fontSize: 11.5, color: Colors.black54, fontWeight: FontWeight.w400),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      // AI / Szimuláció jelző ikon
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 8.0),
+                                        child: Icon(Icons.psychology, size: 16, color: Colors.blueAccent),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
                                         children: [
                                           Text(
-                                            homeTeam,
-                                            style: const TextStyle(fontSize: 11.5, color: Colors.black87, fontWeight: FontWeight.w500),
-                                            overflow: TextOverflow.ellipsis,
+                                            '$homeScore',
+                                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black87),
                                           ),
                                           const SizedBox(height: 1),
                                           Text(
-                                            awayTeam,
-                                            style: const TextStyle(fontSize: 11.5, color: Colors.black54, fontWeight: FontWeight.w400),
-                                            overflow: TextOverflow.ellipsis,
+                                            '$awayScore',
+                                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black87),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          '$homeScore',
-                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black87),
-                                        ),
-                                        const SizedBox(height: 1),
-                                        Text(
-                                          '$awayScore',
-                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black87),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               );
                             }),
