@@ -46,13 +46,13 @@ class _MatchesScreenState extends State<MatchesScreen> {
     await _matchesFuture;
   }
 
-  // Stabil, garantáltan nem fagyós naptár hívás
+  // Stabil, hibamentes naptár megnyitás
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2025, 1, 1),
-      lastDate: DateTime(2028, 12, 31);
+      lastDate: DateTime(2028, 12, 31), // Helyes vesszővel javítva
     );
     
     if (picked != null && picked != _selectedDate) {
@@ -261,7 +261,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               final awayTeam = match['strAwayTeam'] ?? 'Vendég';
                               final homeScore = match['intHomeScore'] ?? '-';
                               final awayScore = match['intAwayScore'] ?? '-';
-                              final rawStatus = match['strStatus'] ?? match['strProgress'] / 'FT';
+                              final rawStatus = match['strStatus'] ?? match['strProgress'] ?? 'FT';
                               final status = _translateStatus(rawStatus.toString());
 
                               return Container(
