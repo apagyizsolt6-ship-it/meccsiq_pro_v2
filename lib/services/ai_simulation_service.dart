@@ -10,6 +10,7 @@ class MatchSimulationResult {
   final double averageHomeGoals;
   final double averageAwayGoals;
   final int totalSimulations;
+  final bool isStatpalLive; // ÚJ: jelzi, hogy élő Statpal adatot használt-e
 
   MatchSimulationResult({
     required this.homeWinProbability,
@@ -19,28 +20,46 @@ class MatchSimulationResult {
     required this.averageHomeGoals,
     required this.averageAwayGoals,
     required this.totalSimulations,
+    required this.isStatpalLive,
   });
 }
 
 class AiSimulationService {
   static const String _geminiApiKey = 'ITT_LEGYEN_A_GEMINI_API_KULCSOD';
   
-  // Memória gyorsítótár (cache) az AI elemzésekhez
+  // Memória gyorsítótár az AI elemzésekhez
   static final Map<String, String> _analysisCache = {};
 
-  // Monte Carlo motor (szinkron verzió, hogy ne törje meg a meglévő képernyők hívásait)
+  // Monte Carlo motor valós Statpal API előkészítéssel és vizuális státusszal
   static MatchSimulationResult runMonteCarloSimulation({
     required String homeTeam,
     required String awayTeam,
     int simulations = 50000,
   }) {
+    bool statpalActive = false;
+    double homeLambda = 1.6;
+    double awayLambda = 1.2;
+
+    try {
+      // Itt vizsgáljuk, hogy van-e mentett kulcs és beállíthatjuk a valós lambda értékeket
+      // (A jövőben itt hívható meg a Statpal service is)
+      // Jelenleg a kulcs meglétét szimuláljuk státuszjelzőhöz:
+      // Ha aktív a Statpal kulcs, akkor jelöljük igaznak:
+      // statpalActive = true; 
+    } catch (_) {
+      statpalActive = false;
+    }
+
     int combinedHash = homeTeam.codeUnits.fold(0, (prev, element) => prev + element) +
         awayTeam.codeUnits.fold(0, (prev, element) => prev + element);
     
     final random = Random(combinedHash);
 
-    double homeLambda = 1.0 + (random.nextDouble() * 1.3);
-    double awayLambda = 0.8 + (random.nextDouble() * 1.2);
+    // Ha nincsenek Statpal adatok, a hash-ből számolunk
+    if (!statpalActive) {
+      homeLambda = 1.0 + (random.nextDouble() * 1.3);
+      awayLambda = 0.8 + (random.nextDouble() * 1.2);
+    }
 
     int homeWins = 0;
     int draws = 0;
@@ -99,6 +118,7 @@ class AiSimulationService {
       averageHomeGoals: totalHomeGoals / simulations,
       averageAwayGoals: totalAwayGoals / simulations,
       totalSimulations: simulations,
+      isStatpalLive: statpalActive,
     );
   }
 
@@ -113,7 +133,7 @@ class AiSimulationService {
     return (k - 1).toInt();
   }
 
-  // Gemini AI Elemzés Cache-eléssel és hibatűrő fallbackkel
+  // Gemini AI Elemzés Cache-eléssel, hibatűrő fallbackkel és Vizuális Statpal Címkével
   static Future<String> getAiMatchAnalysis({
     required String homeTeam,
     required String awayTeam,
@@ -130,8 +150,13 @@ class AiSimulationService {
     
     final dynamicApiKey = (savedKey != null && savedKey.trim().isNotEmpty) ? savedKey.trim() : _geminiApiKey;
 
+    // Vizuális címke előkészítése a szöveg elejére
+    final String dataSourceBadge = simulation.isStatpalLive 
+        ? "🟢 **[Statpal Live adat]**\n" 
+        : "🔵 **[Helyi Monte Carlo adatok]**\n";
+
     if (dynamicApiKey.isEmpty || dynamicApiKey == 'ITT_LEGYEN_A_GEMINI_API_KULCSOD') {
-      return "Kérlek, add meg a Google Gemini API kulcsodat a Profil menüpontban az AI elemzésekhez!";
+      return "$dataSourceBadge Kérlek, add meg a Google Gemini API kulcsodat a Profil menüpontban az AI elemzésekhez!";
     }
 
     try {
@@ -158,13 +183,14 @@ Te egy profi futball-elemző és statisztikus vagy. Kérlek, írj egy tömör, d
       final text = response.text;
 
       if (text != null && text.isNotEmpty) {
-        _analysisCache[cacheKey] = text;
-        return text;
+        final finalResult = "$dataSourceBadge$text";
+        _analysisCache[cacheKey] = finalResult;
+        return finalResult;
       }
       
-      return _generateFallbackAnalysis(homeTeam, awayTeam, simulation);
+      return "$dataSourceBadge${_generateFallbackAnalysis(homeTeam, awayTeam, simulation)}";
     } catch (_) {
-      return _generateFallbackAnalysis(homeTeam, awayTeam, simulation);
+      return "$dataSourceBadge${_generateFallbackAnalysis(homeTeam, awayTeam, simulation)}";
     }
   }
 
