@@ -21,7 +21,6 @@ class StatpalService {
   }
 
   Future<Map<String, dynamic>?> getLiveMatches({bool forceRefresh = false}) async {
-    // Ha van cache-elt adat és még nem telt el a 2 perc, adjuk vissza azt (késleltetés / rate-limit védelem)
     if (!forceRefresh && _cachedData != null && _lastFetchTime != null) {
       if (DateTime.now().difference(_lastFetchTime!) < _cacheDuration) {
         return _cachedData;
@@ -43,9 +42,40 @@ class StatpalService {
         throw Exception('Hiba történt a lekérés során: ${response.statusCode}');
       }
     } catch (e) {
-      // Ha hálózati hiba van, de van régi cache, adjuk azt vissza vészhelyzetben
       if (_cachedData != null) return _cachedData;
       throw Exception('Hálózati hiba: $e');
     }
+  }
+
+  // ÚJ: Liga tabella lekérése a gólátlagokhoz és a Monte Carlo szimulációhoz
+  Future<Map<String, dynamic>?> getLeagueStandings(String leagueId, {String season = '2025-2026'}) async {
+    final apiKey = await _getAccessKey();
+    final url = Uri.parse('$baseUrl/v2/soccer/leagues/$leagueId/standings?access_key=$apiKey&season=$season');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {
+      // Hiba esetén null-t ad vissza, hogy a szimuláció átváltson biztonságos fallbackre
+    }
+    return null;
+  }
+
+  // ÚJ: Egymás elleni múlt (H2H) lekérése a két csapat ID-ja alapján
+  Future<Map<String, dynamic>?> getHeadToHeadStats(String team1Id, String team2Id) async {
+    final apiKey = await _getAccessKey();
+    final url = Uri.parse('$baseUrl/v2/soccer/head-to-head?access_key=$apiKey&team1_id=$team1Id&team2_id=$team2Id');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {
+      // Hiba esetén null
+    }
+    return null;
   }
 }
