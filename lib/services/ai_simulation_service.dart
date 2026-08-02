@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:math';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MatchSimulationResult {
@@ -27,40 +25,22 @@ class MatchSimulationResult {
 class AiSimulationService {
   static const String _geminiApiKey = 'ITT_LEGYEN_A_GEMINI_API_KULCSOD';
   
-  // Memória gyorsítótár az AI elemzésekhez
+  // Memória gyorsítótár (cache) az AI elemzésekhez
   static final Map<String, String> _analysisCache = {};
 
-  // Monte Carlo motor valós Statpal API adatintegrációval (Standings & H2H)
-  static Future<MatchSimulationResult> runMonteCarloSimulation({
+  // Monte Carlo motor (szinkron verzió, hogy ne törje meg a meglévő képernyők hívásait)
+  static MatchSimulationResult runMonteCarloSimulation({
     required String homeTeam,
     required String awayTeam,
     int simulations = 50000,
-  }) async {
-    double homeLambda = 1.6;
-    double awayLambda = 1.2;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final statpalKey = prefs.getString('statpal_key');
-
-      if (statpalKey != null && statpalKey.trim().isNotEmpty) {
-        // Itt lekérhetjük a Statpal API-ból a tabellát vagy H2H adatokat a kulccsal:
-        // pl. https://statpal.io/api/v2/soccer/leagues/{league-id}/standings?access_key=$statpalKey
-        // Ha a válasz sikeres, a csapat lőtt/kapott góljaiból beállítjuk a pontos homeLambda és awayLambda értékeket.
-      }
-    } catch (_) {
-      // Hálózati hiba esetén csendesen visszalép az alapértelmezett kalkulációra
-    }
-
-    // Ha nincsenek extra Statpal adatok, a nevek hash-éből számolunk reális eloszlást
+  }) {
     int combinedHash = homeTeam.codeUnits.fold(0, (prev, element) => prev + element) +
         awayTeam.codeUnits.fold(0, (prev, element) => prev + element);
     
     final random = Random(combinedHash);
-    
-    // Ha a lambdák nem íródtak át a Statpal API-ból, generálunk egyedi értéket
-    if (homeLambda == 1.6) homeLambda = 1.0 + (random.nextDouble() * 1.3);
-    if (awayLambda == 1.2) awayLambda = 0.8 + (random.nextDouble() * 1.2);
+
+    double homeLambda = 1.0 + (random.nextDouble() * 1.3);
+    double awayLambda = 0.8 + (random.nextDouble() * 1.2);
 
     int homeWins = 0;
     int draws = 0;
