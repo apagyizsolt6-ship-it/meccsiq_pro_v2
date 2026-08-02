@@ -7,20 +7,31 @@ import '../../services/sports_db_service.dart';
 // RUGALMAS ÉS HELYES KÖZPONTI FORDÍTÓ
 // ==========================================
 class AppTranslator {
-  static String translateStatus(String status) {
+  static String translateStatus(String status, String? timeStr) {
     final s = status.toUpperCase().trim();
     if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
     if (s == 'HT') return 'Félidő';
-    if (s == 'NS') return 'Kezdésre vár';
     if (s == '1H') return '1. félidő';
     if (s == '2H') return '2. félidő';
     if (s == 'ET') return 'Hosszabbítás';
     if (s == 'PEN') return 'Büntetők';
     if (s.contains('LIVE') || s.contains('IN_PLAY')) return 'Élő';
+    
+    // Ha még nem kezdődött el (NS vagy bármilyen egyéb), de van időpont, azt írjuk ki
+    if (s == 'NS' || s.isEmpty) {
+      if (timeStr != null && timeStr.isNotEmpty) {
+        // Ha az időformátum pl. "19:00:00", levágjuk a másodpercet, hogy "19:00" legyen
+        if (timeStr.length >= 5) {
+          return timeStr.substring(0, 5);
+        }
+        return timeStr;
+      }
+      return 'Kezdés';
+    }
+    
     return s;
   }
 
-  // Kulcsszó alapú, de megbízható felismerés a füzeted alapján
   static String? getTranslatedLeague(String apiLeagueName) {
     final l = apiLeagueName.trim().toLowerCase();
 
@@ -51,7 +62,7 @@ class AppTranslator {
     if (l.contains('segunda division') && !l.contains('chile') && !l.contains('argentina')) return 'Spanyolország - 2. Osztály';
     if (l.contains('copa del rey')) return 'Spanyolország - Király Kupa';
 
-    // Többi ország a füzeted alapján (rugalmasabb kulcsszavakkal)
+    // Többi ország a füzeted alapján
     if (l.contains('primeira liga') || l.contains('portugal')) return 'Portugália - 1. Osztály';
     if (l.contains('liga portugal 2')) return 'Portugália - 2. Osztály';
     if (l.contains('eredivisie') || (l.contains('netherlands') && l.contains('1'))) return 'Hollandia - 1. Osztály';
@@ -389,8 +400,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               final awayTeam = match['strAwayTeam']?.toString() ?? 'Vendég';
                               final homeScore = match['intHomeScore'] ?? '-';
                               final awayScore = match['intAwayScore'] ?? '-';
-                              final rawStatus = match['strStatus'] ?? match['strProgress'] ?? 'FT';
-                              final status = AppTranslator.translateStatus(rawStatus.toString());
+                              final rawStatus = match['strStatus'] ?? match['strProgress'] ?? '';
+                              final timeStr = match['strTime']?.toString(); // Meccs időpontja (pl. 19:00:00)
+                              
+                              final status = AppTranslator.translateStatus(rawStatus.toString(), timeStr);
+                              final isTime = status.contains(':'); // Ha időpont, más színnel/stílussal is kiírhatjuk
 
                               return Container(
                                 decoration: const BoxDecoration(
@@ -406,7 +420,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                         status,
                                         style: TextStyle(
                                           fontSize: 10,
-                                          color: status == 'Vége' ? Colors.grey : Colors.green,
+                                          color: status == 'Vége' 
+                                              ? Colors.grey 
+                                              : (isTime ? Colors.blueGrey : Colors.green),
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
