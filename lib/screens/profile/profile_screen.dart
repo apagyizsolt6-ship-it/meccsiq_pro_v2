@@ -90,7 +90,7 @@ class ProfileScreen extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.key_outlined, size: 20, color: Colors.blueAccent),
                   title: const Text('api beállítások', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  subtitle: const Text('statpal • thesportsdb • sportmonks', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  subtitle: const Text('statpal • thesportsdb • sportmonks • gemini', style: TextStyle(fontSize: 11, color: Colors.grey)),
                   trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
                   onTap: () {
                     _showApiSettingsBottomSheet(context);
@@ -172,6 +172,7 @@ class ProfileScreen extends StatelessWidget {
     final statpalController = TextEditingController(text: prefs.getString('statpal_key') ?? '');
     final sportsdbController = TextEditingController(text: prefs.getString('sportsdb_key') ?? '');
     final sportmonksController = TextEditingController(text: prefs.getString('sportmonks_key') ?? '');
+    final geminiController = TextEditingController(text: prefs.getString('gemini_key') ?? ''); // + Google Gemini kulcs controller
 
     showModalBottomSheet(
       context: context,
@@ -187,69 +188,82 @@ class ProfileScreen extends StatelessWidget {
             top: 20,
             bottom: MediaQuery.of(context).viewInsets.bottom + 32,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'api kulcsok beállítása',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: statpalController,
-                style: const TextStyle(fontSize: 13),
-                decoration: const InputDecoration(
-                  labelText: 'statpal api kulcs',
-                  labelStyle: TextStyle(fontSize: 12),
-                  border: OutlineInputBorder(),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'api kulcsok beállítása',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: sportsdbController,
-                style: const TextStyle(fontSize: 13),
-                decoration: const InputDecoration(
-                  labelText: 'thesportsdb api kulcs',
-                  labelStyle: TextStyle(fontSize: 12),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: sportmonksController,
-                style: const TextStyle(fontSize: 13),
-                decoration: const InputDecoration(
-                  labelText: 'sportmonks api kulcs',
-                  labelStyle: TextStyle(fontSize: 12),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: statpalController,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'statpal api kulcs',
+                    labelStyle: TextStyle(fontSize: 12),
+                    border: OutlineInputBorder(),
                   ),
-                  onPressed: () async {
-                    await prefs.setString('statpal_key', statpalController.text);
-                    await prefs.setString('sportsdb_key', sportsdbController.text);
-                    await prefs.setString('sportmonks_key', sportmonksController.text);
-
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('api kulcsok sikeresen elmentve')),
-                    );
-                  },
-                  child: const Text('kulcsok mentése', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: sportsdbController,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'thesportsdb api kulcs',
+                    labelStyle: TextStyle(fontSize: 12),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: sportmonksController,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'sportmonks api kulcs',
+                    labelStyle: TextStyle(fontSize: 12),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: geminiController,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText: 'google gemini api kulcs',
+                    labelStyle: TextStyle(fontSize: 12),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueAccent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () async {
+                      await prefs.setString('statpal_key', statpalController.text);
+                      await prefs.setString('sportsdb_key', sportsdbController.text);
+                      await prefs.setString('sportmonks_key', sportmonksController.text);
+                      await prefs.setString('gemini_key', geminiController.text); // Mentjük a Gemini kulcsot is
+
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('api kulcsok sikeresen elmentve')),
+                      );
+                    },
+                    child: const Text('kulcsok mentése', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
