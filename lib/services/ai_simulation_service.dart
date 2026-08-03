@@ -30,7 +30,7 @@ class AiSimulationService {
   static const String _geminiApiKey = 'ITT_LEGYEN_A_GEMINI_API_KULCSOD';
   static final Map<String, String> _analysisCache = {};
 
-  // Valós Statpal API Head-to-Head alapú Monte Carlo szimuláció
+  // Aszinkron Monte Carlo szimuláció, ami lekérdezi a Statpal API-t
   static Future<MatchSimulationResult> runMonteCarloSimulation({
     required String homeTeam,
     required String awayTeam,
@@ -46,7 +46,7 @@ class AiSimulationService {
       final prefs = await SharedPreferences.getInstance();
       final statpalKey = prefs.getString('statpal_key') ?? 'b5b07a3f-b019-4a18-8969-6045169feda9';
 
-      // Ha rendelkezésre állnak csapat ID-k, lekérdezzük a valós H2H statisztikát a Statpal API-ból
+      // Ha rendelkezésre állnak ID-k, lekérdezzük a valós Statpal H2H adatot
       if (team1Id != null && team2Id != null && statpalKey.isNotEmpty) {
         final url = Uri.parse('https://statpal.io/api/v2/soccer/head-to-head?access_key=$statpalKey&team1_id=$team1Id&team2_id=$team2Id');
         final response = await http.get(url, headers: {'Accept': 'application/json'});
@@ -56,7 +56,6 @@ class AiSimulationService {
           final h2h = data['head-to-head'];
 
           if (h2h != null && h2h['goals'] != null) {
-            // Adatok kinyerése a Statpal JSON struktúrából
             final goalsTotal = h2h['goals']['total']['total'] as List<dynamic>;
             final overallTotal = h2h['overall_record']['total']['total'] as List<dynamic>;
 
@@ -76,13 +75,8 @@ class AiSimulationService {
             }
 
             if (totalGames > 0) {
-              // Valós gólátlagok kiszámítása a Statpal múltbeli adatai alapján
-              homeLambda = t1Scored / totalGames;
-              awayLambda = t2Scored / totalGames;
-
-              // Biztosítjuk, hogy ésszerű határok közt maradjon a lambda (0.5 és 3.5 között)
-              homeLambda = homeLambda.clamp(0.5, 3.5);
-              awayLambda = awayLambda.clamp(0.5, 3.5);
+              homeLambda = (t1Scored / totalGames).clamp(0.5, 3.5);
+              awayLambda = (t2Scored / totalGames).clamp(0.5, 3.5);
               statpalLive = true;
             }
           }
@@ -92,7 +86,6 @@ class AiSimulationService {
       statpalLive = false;
     }
 
-    // Ha nincs ID vagy hiba történt, biztonsági fallback számítás
     final random = Random(homeTeam.hashCode + awayTeam.hashCode);
     if (!statpalLive) {
       homeLambda = 1.1 + (random.nextDouble() * 0.8);
@@ -174,7 +167,6 @@ class AiSimulationService {
     final savedKey = prefs.getString('gemini_key');
     final dynamicApiKey = (savedKey != null && savedKey.trim().isNotEmpty) ? savedKey.trim() : _geminiApiKey;
 
-    // Pontos és őszinte státuszjelzés a képernyőre
     final String dataSourceBadge = simulation.isStatpalLive 
         ? "🟢 **[Statpal API Head-to-Head valós adatok]**\n" 
         : "🔵 **[Helyi statisztikai modell]**\n";
