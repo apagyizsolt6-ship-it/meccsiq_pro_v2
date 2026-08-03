@@ -97,7 +97,7 @@ class AiSimulationService {
     double? awayScoredAvg;
     double? awayConcededAvg;
 
-    // ========== 1. TABELLA (Standings) ==========
+    // ========== 1. TABELLA ==========
     if (leagueId != null && leagueId.isNotEmpty) {
       try {
         final standingsData = await _statpalService.getStandings(leagueId);
@@ -196,14 +196,17 @@ class AiSimulationService {
               final t2Score =
                   double.tryParse(m['team2_score']?.toString() ?? '') ?? 0;
 
+              final t1Goals = t1Score.toInt().toString();
+              final t2Goals = t2Score.toInt().toString();
+
               if (t1Id == team1Id) {
                 homeGoalsSum += t1Score;
                 awayGoalsSum += t2Score;
-                recentScores.add('\( {t1Score.toInt()}- \){t2Score.toInt()}');
+                recentScores.add(t1Goals + '-' + t2Goals);
               } else if (t2Id == team1Id) {
                 homeGoalsSum += t2Score;
                 awayGoalsSum += t1Score;
-                recentScores.add('\( {t2Score.toInt()}- \){t1Score.toInt()}');
+                recentScores.add(t2Goals + '-' + t1Goals);
               } else {
                 continue;
               }
@@ -239,17 +242,14 @@ class AiSimulationService {
       }
     }
 
-    // Forma
     homeAvg *= _formMultiplier(homeForm);
     awayAvg *= _formMultiplier(awayForm);
-
-    // Hazai pálya előny
     homeAvg += 0.15;
 
     homeAvg = homeAvg.clamp(0.4, 3.2);
     awayAvg = awayAvg.clamp(0.3, 2.8);
 
-    // ========== 4. POISSON MONTE CARLO ==========
+    // ========== 4. POISSON ==========
     const int totalSims = 50000;
     int homeWins = 0;
     int draws = 0;
@@ -268,7 +268,7 @@ class AiSimulationService {
         awayWins++;
       }
 
-      final key = '$hg:$ag';
+      final key = hg.toString() + ':' + ag.toString();
       scoreCounts[key] = (scoreCounts[key] ?? 0) + 1;
     }
 
@@ -322,52 +322,94 @@ class AiSimulationService {
       strength = 'szoros, kiegyenlített meccs';
     }
 
+    final homePct = s.homeWinProbability.toStringAsFixed(1);
+    final drawPct = s.drawProbability.toStringAsFixed(1);
+    final awayPct = s.awayWinProbability.toStringAsFixed(1);
+    final homeXg = s.averageHomeGoals.toString();
+    final awayXg = s.averageAwayGoals.toString();
+
     final buffer = StringBuffer();
 
-    buffer.writeln('**[Valós StatPal adatmodell – Poisson Monte Carlo]**\n');
-    buffer.writeln(
-        '50 000 szimuláció alapján a mérkőzés $strength: **$favorite**.\n');
-    buffer.writeln(
-        '• Hazai győzelem (\( homeTeam): ** \){s.homeWinProbability.toStringAsFixed(1)}%**');
-    buffer.writeln(
-        '• Döntetlen: **${s.drawProbability.toStringAsFixed(1)}%**');
-    buffer.writeln(
-        '• Vendég győzelem (\( awayTeam): ** \){s.awayWinProbability.toStringAsFixed(1)}%**\n');
-    buffer.writeln(
-        'Várható gólátlag (xG): **${s.averageHomeGoals} – ${s.averageAwayGoals}**');
-    buffer.writeln('Legvalószínűbb eredmény: **${s.mostLikelyScore}**\n');
+    buffer.write('**[Valós StatPal adatmodell – Poisson Monte Carlo]**\n\n');
+    buffer.write('50 000 szimuláció alapján a mérkőzés ');
+    buffer.write(strength);
+    buffer.write(': **');
+    buffer.write(favorite);
+    buffer.write('**.\n\n');
+
+    buffer.write('• Hazai győzelem (');
+    buffer.write(homeTeam);
+    buffer.write('): **');
+    buffer.write(homePct);
+    buffer.write('%**\n');
+
+    buffer.write('• Döntetlen: **');
+    buffer.write(drawPct);
+    buffer.write('%**\n');
+
+    buffer.write('• Vendég győzelem (');
+    buffer.write(awayTeam);
+    buffer.write('): **');
+    buffer.write(awayPct);
+    buffer.write('%**\n\n');
+
+    buffer.write('Várható gólátlag (xG): **');
+    buffer.write(homeXg);
+    buffer.write(' – ');
+    buffer.write(awayXg);
+    buffer.write('**\n');
+
+    buffer.write('Legvalószínűbb eredmény: **');
+    buffer.write(s.mostLikelyScore);
+    buffer.write('**\n\n');
 
     if (s.homePosition != null || s.awayPosition != null) {
-      buffer.writeln(
-          'Tabella helyzet: ${s.homePosition ?? "?"} – ${s.awayPosition ?? "?"}');
+      buffer.write('Tabella helyzet: ');
+      buffer.write(s.homePosition?.toString() ?? '?');
+      buffer.write(' – ');
+      buffer.write(s.awayPosition?.toString() ?? '?');
+      buffer.write('\n');
     }
 
     if (s.homeForm != null || s.awayForm != null) {
-      buffer.writeln(
-          'Forma (utolsó 5): ${s.homeForm ?? "–"} | ${s.awayForm ?? "–"}');
+      buffer.write('Forma (utolsó 5): ');
+      buffer.write(s.homeForm ?? '–');
+      buffer.write(' | ');
+      buffer.write(s.awayForm ?? '–');
+      buffer.write('\n');
     }
 
     if (s.homeGoalsScoredAvg != null) {
-      buffer.writeln(
-          'Hazai gólátlag (hazai meccseken): ${s.homeGoalsScoredAvg!.toStringAsFixed(2)} rúgott / ${s.homeGoalsConcededAvg?.toStringAsFixed(2) ?? "?"} kapott');
+      buffer.write('Hazai gólátlag (hazai meccseken): ');
+      buffer.write(s.homeGoalsScoredAvg!.toStringAsFixed(2));
+      buffer.write(' rúgott / ');
+      buffer.write(s.homeGoalsConcededAvg?.toStringAsFixed(2) ?? '?');
+      buffer.write(' kapott\n');
     }
 
     if (s.awayGoalsScoredAvg != null) {
-      buffer.writeln(
-          'Vendég gólátlag (idegenben): ${s.awayGoalsScoredAvg!.toStringAsFixed(2)} rúgott / ${s.awayGoalsConcededAvg?.toStringAsFixed(2) ?? "?"} kapott');
+      buffer.write('Vendég gólátlag (idegenben): ');
+      buffer.write(s.awayGoalsScoredAvg!.toStringAsFixed(2));
+      buffer.write(' rúgott / ');
+      buffer.write(s.awayGoalsConcededAvg?.toStringAsFixed(2) ?? '?');
+      buffer.write(' kapott\n');
     }
 
     if (s.h2hMatchesUsed > 0) {
-      buffer.writeln('\nH2H alap: ${s.h2hMatchesUsed} egymás elleni meccs');
+      buffer.write('\nH2H alap: ');
+      buffer.write(s.h2hMatchesUsed.toString());
+      buffer.write(' egymás elleni meccs\n');
       if (s.recentScores.isNotEmpty) {
-        buffer.writeln('Utolsó eredmények: ${s.recentScores.join("  •  ")}');
+        buffer.write('Utolsó eredmények: ');
+        buffer.write(s.recentScores.join('  •  '));
+        buffer.write('\n');
       }
     } else {
-      buffer.writeln(
-          '\nH2H adat nem volt elérhető, a tabella és a forma alapján számoltunk.');
+      buffer.write(
+          '\nH2H adat nem volt elérhető, a tabella és a forma alapján számoltunk.\n');
     }
 
-    buffer.writeln(
+    buffer.write(
         '\nA modell a StatPal H2H + tabella (hazai/vendég gólátlag) + forma (WDWWL) adatait kombinálja, majd Poisson-eloszlással szimulálja a gólokat.');
 
     return buffer.toString();
