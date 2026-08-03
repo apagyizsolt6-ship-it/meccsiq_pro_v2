@@ -300,7 +300,7 @@ class AiSimulationService {
     required String awayTeam,
     required MatchSimulationResult simulation,
   }) async {
-    final s = simulation
+    final s = simulation;
     final favorite = s.homeWinProbability >= s.awayWinProbability ? homeTeam : awayTeam;
     final diff = (s.homeWinProbability - s.awayWinProbability).abs();
 
