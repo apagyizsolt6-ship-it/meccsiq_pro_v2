@@ -57,7 +57,6 @@ class AiSimulationService {
     return k - 1;
   }
 
-  /// Forma → szorzó (W=1.15, D=1.0, L=0.85)
   static double _formMultiplier(String? form) {
     if (form == null || form.isEmpty) return 1.0;
     double score = 0;
@@ -119,9 +118,15 @@ class AiSimulationService {
 
                   final homeStats = team['home'];
                   if (homeStats is Map) {
-                    final gp = double.tryParse(homeStats['games_played']?.toString() ?? '0') ?? 0;
-                    final gs = double.tryParse(homeStats['goals_scored']?.toString() ?? '0') ?? 0;
-                    final ga = double.tryParse(homeStats['goals_allowed']?.toString() ?? '0') ?? 0;
+                    final gp = double.tryParse(
+                            homeStats['games_played']?.toString() ?? '0') ??
+                        0;
+                    final gs = double.tryParse(
+                            homeStats['goals_scored']?.toString() ?? '0') ??
+                        0;
+                    final ga = double.tryParse(
+                            homeStats['goals_allowed']?.toString() ?? '0') ??
+                        0;
                     if (gp > 0) {
                       homeScoredAvg = gs / gp;
                       homeConcededAvg = ga / gp;
@@ -135,9 +140,15 @@ class AiSimulationService {
 
                   final awayStats = team['away'];
                   if (awayStats is Map) {
-                    final gp = double.tryParse(awayStats['games_played']?.toString() ?? '0') ?? 0;
-                    final gs = double.tryParse(awayStats['goals_scored']?.toString() ?? '0') ?? 0;
-                    final ga = double.tryParse(awayStats['goals_allowed']?.toString() ?? '0') ?? 0;
+                    final gp = double.tryParse(
+                            awayStats['games_played']?.toString() ?? '0') ??
+                        0;
+                    final gs = double.tryParse(
+                            awayStats['goals_scored']?.toString() ?? '0') ??
+                        0;
+                    final ga = double.tryParse(
+                            awayStats['goals_allowed']?.toString() ?? '0') ??
+                        0;
                     if (gp > 0) {
                       awayScoredAvg = gs / gp;
                       awayConcededAvg = ga / gp;
@@ -152,9 +163,13 @@ class AiSimulationService {
     }
 
     // ========== 2. H2H ==========
-    if (team1Id != null && team2Id != null && team1Id.isNotEmpty && team2Id.isNotEmpty) {
+    if (team1Id != null &&
+        team2Id != null &&
+        team1Id.isNotEmpty &&
+        team2Id.isNotEmpty) {
       try {
-        final h2hData = await _statpalService.getHeadToHeadStats(team1Id, team2Id);
+        final h2hData =
+            await _statpalService.getHeadToHeadStats(team1Id, team2Id);
         if (h2hData != null && h2hData['head-to-head'] != null) {
           final recent = h2hData['head-to-head']['recent_meetings'];
           dynamic rawMatches = recent?['match'];
@@ -173,10 +188,13 @@ class AiSimulationService {
 
             for (final m in matches) {
               if (m is! Map) continue;
+
               final t1Id = m['team1_id']?.toString();
               final t2Id = m['team2_id']?.toString();
-              final t1Score = double.tryParse(m['team1_score']?.toString() ?? '') ?? 0;
-              final t2Score = double.tryParse(m['team2_score']?.toString() ?? '') ?? 0;
+              final t1Score =
+                  double.tryParse(m['team1_score']?.toString() ?? '') ?? 0;
+              final t2Score =
+                  double.tryParse(m['team2_score']?.toString() ?? '') ?? 0;
 
               if (t1Id == team1Id) {
                 homeGoalsSum += t1Score;
@@ -202,14 +220,9 @@ class AiSimulationService {
       } catch (_) {}
     }
 
-    // ========== 3. KOMBINÁLÁS (H2H + Tabella + Forma) ==========
-    // Ha van tabella adat, keverjük a H2H-val
+    // ========== 3. KOMBINÁLÁS ==========
     if (homeScoredAvg != null && awayConcededAvg != null) {
-      // Attack strength vs Defense strength
-      final homeAttack = homeScoredAvg;
-      final awayDefense = awayConcededAvg;
-      final combinedHome = (homeAttack + awayDefense) / 2;
-
+      final combinedHome = (homeScoredAvg + awayConcededAvg) / 2;
       if (h2hCount > 0) {
         homeAvg = (homeAvg * 0.55) + (combinedHome * 0.45);
       } else {
@@ -218,10 +231,7 @@ class AiSimulationService {
     }
 
     if (awayScoredAvg != null && homeConcededAvg != null) {
-      final awayAttack = awayScoredAvg;
-      final homeDefense = homeConcededAvg;
-      final combinedAway = (awayAttack + homeDefense) / 2;
-
+      final combinedAway = (awayScoredAvg + homeConcededAvg) / 2;
       if (h2hCount > 0) {
         awayAvg = (awayAvg * 0.55) + (combinedAway * 0.45);
       } else {
@@ -229,16 +239,13 @@ class AiSimulationService {
       }
     }
 
-    // Forma szorzó
-    final homeFormMul = _formMultiplier(homeForm);
-    final awayFormMul = _formMultiplier(awayForm);
-    homeAvg *= homeFormMul;
-    awayAvg *= awayFormMul;
+    // Forma
+    homeAvg *= _formMultiplier(homeForm);
+    awayAvg *= _formMultiplier(awayForm);
 
     // Hazai pálya előny
     homeAvg += 0.15;
 
-    // Minimum / maximum korlát
     homeAvg = homeAvg.clamp(0.4, 3.2);
     awayAvg = awayAvg.clamp(0.3, 2.8);
 
@@ -301,7 +308,9 @@ class AiSimulationService {
     required MatchSimulationResult simulation,
   }) async {
     final s = simulation;
-    final favorite = s.homeWinProbability >= s.awayWinProbability ? homeTeam : awayTeam;
+
+    final favorite =
+        s.homeWinProbability >= s.awayWinProbability ? homeTeam : awayTeam;
     final diff = (s.homeWinProbability - s.awayWinProbability).abs();
 
     String strength;
@@ -314,24 +323,35 @@ class AiSimulationService {
     }
 
     final buffer = StringBuffer();
+
     buffer.writeln('**[Valós StatPal adatmodell – Poisson Monte Carlo]**\n');
-    buffer.writeln('50 000 szimuláció alapján a mérkőzés $strength: **$favorite**.\n');
-    buffer.writeln('• Hazai győzelem (\( homeTeam): ** \){s.homeWinProbability.toStringAsFixed(1)}%**');
-    buffer.writeln('• Döntetlen: **${s.drawProbability.toStringAsFixed(1)}%**');
-    buffer.writeln('• Vendég győzelem (\( awayTeam): ** \){s.awayWinProbability.toStringAsFixed(1)}%**\n');
-    buffer.writeln('Várható gólátlag (xG): **${s.averageHomeGoals} – ${s.averageAwayGoals}**');
+    buffer.writeln(
+        '50 000 szimuláció alapján a mérkőzés $strength: **$favorite**.\n');
+    buffer.writeln(
+        '• Hazai győzelem (\( homeTeam): ** \){s.homeWinProbability.toStringAsFixed(1)}%**');
+    buffer.writeln(
+        '• Döntetlen: **${s.drawProbability.toStringAsFixed(1)}%**');
+    buffer.writeln(
+        '• Vendég győzelem (\( awayTeam): ** \){s.awayWinProbability.toStringAsFixed(1)}%**\n');
+    buffer.writeln(
+        'Várható gólátlag (xG): **${s.averageHomeGoals} – ${s.averageAwayGoals}**');
     buffer.writeln('Legvalószínűbb eredmény: **${s.mostLikelyScore}**\n');
 
     if (s.homePosition != null || s.awayPosition != null) {
-      buffer.writeln('Tabella helyzet: ${s.homePosition ?? "?"} – ${s.awayPosition ?? "?"}');
+      buffer.writeln(
+          'Tabella helyzet: ${s.homePosition ?? "?"} – ${s.awayPosition ?? "?"}');
     }
+
     if (s.homeForm != null || s.awayForm != null) {
-      buffer.writeln('Forma (utolsó 5): ${s.homeForm ?? "–"} | ${s.awayForm ?? "–"}');
+      buffer.writeln(
+          'Forma (utolsó 5): ${s.homeForm ?? "–"} | ${s.awayForm ?? "–"}');
     }
+
     if (s.homeGoalsScoredAvg != null) {
       buffer.writeln(
           'Hazai gólátlag (hazai meccseken): ${s.homeGoalsScoredAvg!.toStringAsFixed(2)} rúgott / ${s.homeGoalsConcededAvg?.toStringAsFixed(2) ?? "?"} kapott');
     }
+
     if (s.awayGoalsScoredAvg != null) {
       buffer.writeln(
           'Vendég gólátlag (idegenben): ${s.awayGoalsScoredAvg!.toStringAsFixed(2)} rúgott / ${s.awayGoalsConcededAvg?.toStringAsFixed(2) ?? "?"} kapott');
@@ -343,7 +363,8 @@ class AiSimulationService {
         buffer.writeln('Utolsó eredmények: ${s.recentScores.join("  •  ")}');
       }
     } else {
-      buffer.writeln('\nH2H adat nem volt elérhető, a tabella és a forma alapján számoltunk.');
+      buffer.writeln(
+          '\nH2H adat nem volt elérhető, a tabella és a forma alapján számoltunk.');
     }
 
     buffer.writeln(
