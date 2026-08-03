@@ -1,176 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../services/sports_db_service.dart';
-import '../ai/ai_analysis_screen.dart'; // Importáljuk az AI elemző képernyőt
+import '../../services/statpal_service.dart';
+import '../ai/ai_analysis_screen.dart';
 
-// ==========================================
-// VÉGLEGESEN SZIGORÍTOTT FORDÍTÓ OSZTÁLY
-// ==========================================
-class AppTranslator {
-  static String translateStatus(String status, String? progress, String? timeStr) {
-    final s = status.toUpperCase().trim();
-    final p = progress?.trim() ?? '';
-    
-    if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
-    if (s == 'HT') return 'Félidő';
-    
-    if (p.isNotEmpty && (s.contains('LIVE') || s.contains('IN_PLAY') || s == '1H' || s == '2H' || s == 'ET')) {
-      if (p.endsWith('\'')) return p;
-      return '$p\'';
-    }
-    
-    if (s == 'HT') return 'Félidő';
-    if (s == '1H') return '1\'';
-    if (s == '2H') return '46\'';
-    
-    if (s == 'NS' || s.isEmpty) {
-      if (timeStr != null && timeStr.isNotEmpty) {
-        if (timeStr.length >= 5) {
-          return timeStr.substring(0, 5);
-        }
-        return timeStr;
-      }
-      return 'Kezdés';
-    }
-    
-    return s;
-  }
-
-  static String? getTranslatedLeague(String apiLeagueName) {
-    final l = apiLeagueName.trim().toLowerCase();
-
-    // 1. KIZÁRÁSOK (Női, utánpótlás, dél-amerikai/közép-amerikai tévesztések)
-    if (l.contains('women') || l.contains('u18') || l.contains('u21') || l.contains('u20') || l.contains('u19') ||
-        l.contains('ecuador') || l.contains('guatemala') || l.contains('venezuela') || 
-        l.contains('honduras') || l.contains('el salvador') || l.contains('nicaragua') || 
-        l.contains('costa rica') || l.contains('bolivia') || l.contains('peru') || 
-        l.contains('chile') || l.contains('uruguay') || l.contains('paraguay') ||
-        l.contains('usl') || l.contains('canada') || l.contains('friendly') || l.contains('barátságos')) {
-      return null;
-    }
-
-    // 2. PONTOS ÉS EGYEDI MEGFELELTETÉS (Nincs félreértés)
-    
-    // Nemzetközi kupák
-    if (l == 'uefa champions league' || l == 'champions league') return 'Bajnokok Ligája';
-    if (l == 'uefa europa league' || l == 'europa league') return 'Európa Liga';
-    if (l == 'uefa conference league' || l == 'conference league' || l == 'europa conference league') return 'Konferencia Liga';
-
-    // Magyarország
-    if (l == 'hungarian nb i' || l == 'nb i' || l == 'otp bank liga') return 'Magyarország - NB I';
-    if (l == 'hungarian nb ii' || l == 'nb ii' || l == 'merkantil bank liga') return 'Magyarország - NB II';
-    if (l == 'hungarian cup' || l == 'magyar kupa') return 'Magyarország - Magyar Kupa';
-
-    // Anglia
-    if (l == 'english premier league') return 'Anglia Premier Liga';
-    if (l == 'english championship') return 'Anglia Championship';
-    if (l == 'english fa cup' || l == 'fa cup') return 'Anglia FA Kupa';
-
-    // Németország
-    if (l == 'german bundesliga') return 'Németország Bundesliga';
-    if (l == 'german 2. bundesliga') return 'Németország 2. Bundesliga';
-    if (l == 'german dfb pokal') return 'Németország Német Kupa';
-
-    // Spanyolország
-    if (l == 'spanish la liga' || l == 'spain primera division') return 'Spanyolország La Liga';
-    if (l == 'spanish segunda division') return 'Spanyolország 2. Osztály';
-    if (l == 'spanish copa del rey') return 'Spanyolország Király Kupa';
-
-    // Olaszország
-    if (l == 'italian serie a') return 'Olaszország Serie A';
-    if (l == 'italian serie b') return 'Olaszország Serie B';
-    if (l == 'italian coppa italia') return 'Olaszország Olasz Kupa';
-
-    // Franciaország
-    if (l == 'french ligue 1') return 'Franciaország Ligue 1';
-    if (l == 'french ligue 2') return 'Franciaország Ligue 2';
-    if (l == 'french coupe de france') return 'Franciaország Francia Kupa';
-
-    // Dánia
-    if (l == 'danish superliga') return 'Dánia Superliga';
-    if (l == 'danish 1st division') return 'Dánia 1. osztály';
-
-    // Lengyelország
-    if (l == 'polish ekstraklasa') return 'Lengyelország Ekstraklasa';
-    if (l == 'polish i liga') return 'Lengyelország 1. osztály';
-
-    // Kína
-    if (l == 'chinese super league') return 'Kína Szuperliga';
-
-    // Egyéb országok (csak pontos hivatalos nevek alapján)
-    if (l == 'portuguese primeira liga') return 'Portugália 1. Osztály';
-    if (l == 'portuguese segunda liga') return 'Portugália 2. Osztály';
-    if (l == 'dutch eredivisie') return 'Hollandia 1. Osztály';
-    if (l == 'dutch eerste divisie') return 'Hollandia 2. Osztály';
-    if (l == 'belgian pro league') return 'Belgium 1. Osztály';
-    if (l == 'belgian first division b') return 'Belgium 2. Osztály';
-    if (l == 'turkish süper lig') return 'Törökország 1. Osztály';
-    if (l == 'turkish 1. lig') return 'Törökország 2. Osztály';
-    if (l == 'czech first league') return 'Csehország 1. Osztály';
-    if (l.contains('super league greece')) return 'Görögország 1. Osztály';
-    if (l == 'norwegian eliteserien') return 'Norvégia 1. Osztály';
-    if (l == 'norwegian 1. divisjon') return 'Norvégia 2. Osztály';
-    if (l == 'swiss super league') return 'Svájc 1. Osztály';
-    if (l == 'swiss challenge league') return 'Svájc 2. Osztály';
-    if (l == 'cypriot first division') return 'Ciprus 1. Osztály';
-    if (l == 'swedish allsvenskan') return 'Svédország 1. Osztály';
-    if (l == 'swedish superettan') return 'Svédország 2. Osztály';
-    if (l == 'scottish premiership') return 'Skócia 1. Osztály';
-    if (l == 'scottish championship') return 'Skócia 2. Osztály';
-    if (l == 'austrian bundesliga') return 'Ausztria 1. Osztály';
-    if (l == 'austrian 2. liga') return 'Ausztria 2. Osztály';
-    if (l == 'romanian liga i') return 'Románia 1. Osztály';
-    if (l == 'romanian liga ii') return 'Románia 2. Osztály';
-    if (l.contains('croatian') && l.contains('hnl')) return 'Horvátország 1. Osztály';
-    if (l.contains('slovenian prvaliga')) return 'Szlovénia 1. Osztály';
-    if (l.contains('ukrainian premier league')) return 'Ukrajna 1. Osztály';
-    if (l.contains('israeli premier league')) return 'Izrael 1. Osztály';
-    if (l.contains('league of ireland')) return 'Írország 1. Osztály';
-    if (l.contains('armenian premier league')) return 'Örményország 1. Osztály';
-    if (l.contains('kosovo') && l.contains('superliga')) return 'Koszovó 1. Osztály';
-    if (l.contains('bosnian') && l.contains('premijer liga')) return 'Bosznia-Hercegovina 1. Osztály';
-    if (l.contains('latvian') && l.contains('virsliga')) return 'Lettország 1. Osztály';
-    if (l == 'finnish veikkausliiga') return 'Finnország 1. Osztály';
-    if (l == 'finnish ykkönen') return 'Finnország 2. Osztály';
-    if (l.contains('kazakhstan premier league')) return 'Kazahsztán 1. Osztály';
-    if (l.contains('faroe islands premier league')) return 'Feröer-szigetek 1. Osztály';
-    if (l.contains('macedonian first football league')) return 'Észak-Macedónia 1. Osztály';
-    if (l.contains('moldovan')) return 'Moldova 1. Osztály';
-    if (l.contains('albanian superliga')) return 'Albánia 1. Osztály';
-    if (l.contains('belarusian premier league')) return 'Fehéroroszország 1. Osztály';
-    if (l.contains('lithuanian a lyga')) return 'Litvánia 1. Osztály';
-    if (l.contains('maltese premier league')) return 'Málta 1. Osztály';
-    if (l.contains('estonian meistriliiga')) return 'Észtország 1. Osztály';
-    if (l.contains('andorran')) return 'Andorra 1. Osztály';
-    if (l.contains('georgian erovnuli liga')) return 'Grúzia 1. Osztály';
-    if (l.contains('cymru premier')) return 'Wales 1. Osztály';
-    if (l.contains('argentine') && l.contains('primera')) return 'Argentína 1. Osztály';
-    if (l.contains('argentinian') && l.contains('b nacional')) return 'Argentína 2. Osztály';
-    if (l == 'brazilian serie a') return 'Brazília 1. Osztály';
-    if (l == 'brazilian serie b') return 'Brazília 2. Osztály';
-    if (l.contains('liga mx')) return 'Mexikó 1. Osztály';
-    if (l.contains('colombian')) return 'Kolumbia 1. Osztály';
-    if (l.contains('major league soccer') || l == 'mls') return 'USA 1. Osztály';
-    if (l.contains('j1 league')) return 'Japán 1. Osztály';
-    if (l.contains('k league 1')) return 'Dél-Korea 1. Osztály';
-    if (l.contains('iranian')) return 'Irán 1. Osztály';
-    if (l.contains('egyptian premier league')) return 'Egyiptom 1. Osztály';
-    if (l.contains('nigerian')) return 'Nigéria 1. Osztály';
-    if (l.contains('tunisian')) return 'Tunézia 1. Osztály';
-    if (l.contains('qatar stars league')) return 'Katar 1. Osztály';
-    if (l.contains('saudi pro league')) return 'Szaúd-Arábia 1. Osztály';
-    if (l.contains('philippines')) return 'Fülöp-szigetek 1. Osztály';
-    if (l.contains('indian super league')) return 'India 1. Osztály';
-    if (l.contains('hong kong premier league')) return 'Hongkong 1. Osztály';
-
-    return null;
-  }
-}
-
-// ==========================================
-// KÉPERNYŐ
-// ==========================================
 class MatchesScreen extends StatefulWidget {
   const MatchesScreen({super.key});
 
@@ -179,12 +12,12 @@ class MatchesScreen extends StatefulWidget {
 }
 
 class _MatchesScreenState extends State<MatchesScreen> {
-  final SportsDbService _sportsDbService = SportsDbService();
+  final StatpalService _statpalService = StatpalService();
   late Future<Map<String, dynamic>?> _matchesFuture;
   
-  DateTime _selectedDate = DateTime(2026, 6, 6);
-  
+  DateTime _selectedDate = DateTime.now();
   String _searchQuery = '';
+  bool _showOnlyLive = false; // ÚJ: Csak az élő meccsek szűrője
   final Set<String> _collapsedLeagues = {};
   bool _allCollapsed = true;
   
@@ -203,9 +36,14 @@ class _MatchesScreenState extends State<MatchesScreen> {
   }
 
   void _loadMatches() {
-    final formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
     setState(() {
-      _matchesFuture = _sportsDbService.getMatchesForDate(formattedDate);
+      // Ha a mai nap van kiválasztva, az élő/mai meccseket kérjük le, egyébként a napi végpontot offset alapján
+      final difference = _selectedDate.difference(DateTime.now()).inDays;
+      if (difference == 0) {
+        _matchesFuture = _statpalService.getLiveMatches(forceRefresh: true);
+      } else {
+        _matchesFuture = _statpalService.getDailyMatches(difference);
+      }
     });
   }
 
@@ -251,12 +89,26 @@ class _MatchesScreenState extends State<MatchesScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
-        title: const Text('Élő Foci Eredmények', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        title: const Text('Statpal Foci Eredmények', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
         centerTitle: true,
         actions: [
+          // Élő meccsek szűrő ikon
+          IconButton(
+            icon: Icon(
+              _showOnlyLive ? Icons.live_tv : Icons.tv_off,
+              size: 20,
+              color: _showOnlyLive ? Colors.red : Colors.grey,
+            ),
+            tooltip: _showOnlyLive ? 'Összes meccs mutatása' : 'Csak élő meccsek',
+            onPressed: () {
+              setState(() {
+                _showOnlyLive = !_showOnlyLive;
+              });
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, size: 20),
             tooltip: 'Frissítés',
@@ -341,46 +193,60 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 }
 
                 final data = snapshot.data!;
-                final allEvents = data['events'] as List<dynamic>? ?? [];
+                // A Statpal válasz szerkezete alapján kinyerjük a ligákat
+                final rootKey = data.keys.first;
+                final rootData = data[rootKey] is Map ? data[rootKey] : null;
+                final leaguesList = rootData?['league'] as List<dynamic>? ?? [];
 
-                final matches = allEvents.where((match) {
-                  final sport = match['strSport']?.toString().toLowerCase() ?? '';
-                  final isSoccer = sport == 'soccer' || (sport.contains('football') && !sport.contains('american'));
-                  if (!isSoccer) return false;
+                if (leaguesList.isEmpty) {
+                  return const Center(child: Text('Nincsenek meccsek ezen a napon.', style: TextStyle(fontSize: 13)));
+                }
 
-                  final rawLeague = match['strLeague']?.toString() ?? '';
-                  return AppTranslator.getTranslatedLeague(rawLeague) != null;
-                }).toList();
+                List<Map<String, dynamic>> processedLeagues = [];
 
-                final filteredMatches = matches.where((match) {
-                  final home = match['strHomeTeam']?.toString().toLowerCase() ?? '';
-                  final away = match['strAwayTeam']?.toString().toLowerCase() ?? '';
-                  final rawLeague = match['strLeague']?.toString() ?? '';
-                  final translatedLeague = AppTranslator.getTranslatedLeague(rawLeague)?.toLowerCase() ?? '';
-                  return home.contains(_searchQuery) || away.contains(_searchQuery) || translatedLeague.contains(_searchQuery);
-                }).toList();
+                for (var leagueGroup in leaguesList) {
+                  final leagueName = leagueGroup['name']?.toString() ?? 'Ismeretlen Bajnokság';
+                  final matches = leagueGroup['match'] as List<dynamic>? ?? [];
 
-                if (filteredMatches.isEmpty) {
+                  List<dynamic> validMatches = matches.where((match) {
+                    if (match is! Map) return false;
+                    final status = match['status']?.toString().toUpperCase() ?? '';
+                    
+                    // Ha be van kapcsolva az élő szűrő, csak azokat hagyjuk, amik épp zajlanak
+                    if (_showOnlyLive) {
+                      if (!(status.contains('LIVE') || status.contains('1H') || status.contains('2H') || status == 'HT')) {
+                        return false;
+                      }
+                    }
+
+                    final home = match['home']?['name']?.toString().toLowerCase() ?? '';
+                    final away = match['away']?['name']?.toString().toLowerCase() ?? '';
+                    final league = leagueName.toLowerCase();
+
+                    return home.contains(_searchQuery) || away.contains(_searchQuery) || league.contains(_searchQuery);
+                  }).toList();
+
+                  if (validMatches.isNotEmpty) {
+                    processedLeagues.add({
+                      'name': leagueName,
+                      'matches': validMatches,
+                    });
+                  }
+                }
+
+                if (processedLeagues.isEmpty) {
                   return const Center(child: Text('Nincs a szűrésnek megfelelő mérkőzés.', style: TextStyle(fontSize: 13)));
                 }
-
-                final Map<String, List<dynamic>> groupedMatches = {};
-                for (var match in filteredMatches) {
-                  final rawLeague = match['strLeague'] ?? '';
-                  final translatedLeagueName = AppTranslator.getTranslatedLeague(rawLeague) ?? rawLeague;
-                  groupedMatches.putIfAbsent(translatedLeagueName, () => []).add(match);
-                }
-
-                final leagues = groupedMatches.keys.toList();
 
                 return RefreshIndicator(
                   onRefresh: _handleRefresh,
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 4),
-                    itemCount: leagues.length,
+                    itemCount: processedLeagues.length,
                     itemBuilder: (context, leagueIndex) {
-                      final leagueName = leagues[leagueIndex];
-                      final leagueMatches = groupedMatches[leagueName]!;
+                      final leagueData = processedLeagues[leagueIndex];
+                      final leagueName = leagueData['name'] as String;
+                      final leagueMatches = leagueData['matches'] as List<dynamic>;
                       
                       final isCollapsed = _allCollapsed ? !_collapsedLeagues.contains(leagueName) : _collapsedLeagues.contains(leagueName);
 
@@ -427,21 +293,19 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           ),
                           if (!isCollapsed)
                             ...leagueMatches.map((match) {
-                              final homeTeam = match['strHomeTeam']?.toString() ?? 'Hazai';
-                              final awayTeam = match['strAwayTeam']?.toString() ?? 'Vendég';
-                              final homeScore = match['intHomeScore'] ?? '-';
-                              final awayScore = match['intAwayScore'] ?? '-';
-                              final rawStatus = match['strStatus'] ?? match['strProgress'] ?? '';
-                              final progress = match['strProgress']?.toString();
-                              final timeStr = match['strTime']?.toString();
-                              
-                              final status = AppTranslator.translateStatus(rawStatus.toString(), progress, timeStr);
-                              final isTime = status.contains(':');
-                              final isLiveMinute = status.endsWith('\'');
+                              final homeTeam = match['home']?['name']?.toString() ?? 'Hazai';
+                              final awayTeam = match['away']?['name']?.toString() ?? 'Vendég';
+                              final homeScore = match['home']?['goals'] ?? match['ft']?['home_goals'] ?? '-';
+                              final awayScore = match['away']?['goals'] ?? match['ft']?['away_goals'] ?? '-';
+                              final status = match['status']?.toString() ?? 'Kezdés';
+                              final timeStr = match['time']?.toString() ?? '';
+
+                              // Valódi Statpal csapat ID-k kinyerése a H2H-hoz és elemzéshez
+                              final homeTeamId = match['home']?['id']?.toString();
+                              final awayTeamId = match['away']?['id']?.toString();
 
                               return InkWell(
                                 onTap: () {
-                                  // Navigáció az AI & Monte Carlo elemzéshez erre a meccsre
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -449,6 +313,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                         homeTeam: homeTeam,
                                         awayTeam: awayTeam,
                                         leagueName: leagueName,
+                                        team1Id: homeTeamId,
+                                        team2Id: awayTeamId,
                                       ),
                                     ),
                                   );
@@ -462,14 +328,12 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                   child: Row(
                                     children: [
                                       SizedBox(
-                                        width: 45,
+                                        width: 50,
                                         child: Text(
-                                          status,
+                                          status == 'FT' ? 'Vége' : (status.isEmpty ? timeStr : status),
                                           style: TextStyle(
                                             fontSize: 10,
-                                            color: status == 'Vége' 
-                                                ? Colors.grey 
-                                                : (isLiveMinute ? Colors.red : (isTime ? Colors.blueGrey : Colors.green)),
+                                            color: status == 'FT' ? Colors.grey : Colors.green,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
@@ -492,7 +356,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                           ],
                                         ),
                                       ),
-                                      // AI / Szimuláció jelző ikon
                                       const Padding(
                                         padding: EdgeInsets.symmetric(horizontal: 8.0),
                                         child: Icon(Icons.psychology, size: 16, color: Colors.blueAccent),
