@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MatchSimulationResult {
@@ -28,34 +30,71 @@ class AiSimulationService {
   static const String _geminiApiKey = 'ITT_LEGYEN_A_GEMINI_API_KULCSOD';
   static final Map<String, String> _analysisCache = {};
 
-  // Szinkron szimulációs motor, ami azonnal lefordul a meglévő képernyőkkel
-  static MatchSimulationResult runMonteCarloSimulation({
+  // Valós Statpal API Head-to-Head alapú Monte Carlo szimuláció
+  static Future<MatchSimulationResult> runMonteCarloSimulation({
     required String homeTeam,
     required String awayTeam,
+    int? team1Id,
+    int? team2Id,
     int simulations = 50000,
-  }) {
-    // Ellenőrizzük, hogy van-e mentett Statpal kulcs a telefonodon
-    bool statpalActive = false;
+  }) async {
     double homeLambda = 1.4;
     double awayLambda = 1.1;
+    bool statpalLive = false;
 
     try {
-      // Ha van aktív kulcs, engedélyezzük a Statpal Live jelzést és a valósabb gólátlagokat
-      statpalActive = true; 
+      final prefs = await SharedPreferences.getInstance();
+      final statpalKey = prefs.getString('statpal_key') ?? 'b5b07a3f-b019-4a18-8969-6045169feda9';
+
+      // Ha rendelkezésre állnak csapat ID-k, lekérdezzük a valós H2H statisztikát a Statpal API-ból
+      if (team1Id != null && team2Id != null && statpalKey.isNotEmpty) {
+        final url = Uri.parse('https://statpal.io/api/v2/soccer/head-to-head?access_key=$statpalKey&team1_id=$team1Id&team2_id=$team2Id');
+        final response = await http.get(url, headers: {'Accept': 'application/json'});
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final h2h = data['head-to-head'];
+
+          if (h2h != null && h2h['goals'] != null) {
+            // Adatok kinyerése a Statpal JSON struktúrából
+            final goalsTotal = h2h['goals']['total']['total'] as List<dynamic>;
+            final overallTotal = h2h['overall_record']['total']['total'] as List<dynamic>;
+
+            int totalGames = 1;
+            for (var item in overallTotal) {
+              if (item['games'] != null) {
+                totalGames = int.tryParse(item['games'].toString()) ?? 1;
+              }
+            }
+
+            double t1Scored = 0;
+            double t2Scored = 0;
+
+            for (var item in goalsTotal) {
+              if (item['team1_scored'] != null) t1Scored = double.tryParse(item['team1_scored'].toString()) ?? 0;
+              if (item['team2_scored'] != null) t2Scored = double.tryParse(item['team2_scored'].toString()) ?? 0;
+            }
+
+            if (totalGames > 0) {
+              // Valós gólátlagok kiszámítása a Statpal múltbeli adatai alapján
+              homeLambda = t1Scored / totalGames;
+              awayLambda = t2Scored / totalGames;
+
+              // Biztosítjuk, hogy ésszerű határok közt maradjon a lambda (0.5 és 3.5 között)
+              homeLambda = homeLambda.clamp(0.5, 3.5);
+              awayLambda = awayLambda.clamp(0.5, 3.5);
+              statpalLive = true;
+            }
+          }
+        }
+      }
     } catch (_) {
-      statpalActive = false;
+      statpalLive = false;
     }
 
-    int combinedHash = homeTeam.codeUnits.fold(0, (prev, element) => prev + element) +
-        awayTeam.codeUnits.fold(0, (prev, element) => prev + element);
-    
-    final random = Random(combinedHash);
-
-    if (statpalActive) {
-      // Dinamikus, egyedi gólátlagok a csapatnevek alapján, ha aktív a Statpal kapcsolat
-      homeLambda = 1.2 + (random.nextDouble() * 0.9);
-      awayLambda = 0.9 + (random.nextDouble() * 0.9);
-    } else {
+    // Ha nincs ID vagy hiba történt, biztonsági fallback számítás
+    final random = Random(homeTeam.hashCode + awayTeam.hashCode);
+    if (!statpalLive) {
       homeLambda = 1.1 + (random.nextDouble() * 0.8);
       awayLambda = 0.9 + (random.nextDouble() * 0.8);
     }
@@ -105,7 +144,7 @@ class AiSimulationService {
       averageHomeGoals: totalHomeGoals / simulations,
       averageAwayGoals: totalAwayGoals / simulations,
       totalSimulations: simulations,
-      isStatpalLive: statpalActive,
+      isStatpalLive: statpalLive,
     );
   }
 
@@ -135,9 +174,10 @@ class AiSimulationService {
     final savedKey = prefs.getString('gemini_key');
     final dynamicApiKey = (savedKey != null && savedKey.trim().isNotEmpty) ? savedKey.trim() : _geminiApiKey;
 
+    // Pontos és őszinte státuszjelzés a képernyőre
     final String dataSourceBadge = simulation.isStatpalLive 
-        ? "🟢 **[Statpal API élő adatszolgáltatás aktív]**\n" 
-        : "🔵 **[Helyi kalkuláció]**\n";
+        ? "🟢 **[Statpal API Head-to-Head valós adatok]**\n" 
+        : "🔵 **[Helyi statisztikai modell]**\n";
 
     if (dynamicApiKey.isEmpty || dynamicApiKey == 'ITT_LEGYEN_A_GEMINI_API_KULCSOD') {
       return "$dataSourceBadge Kérlek, add meg a Google Gemini API kulcsodat a Profil menüpontban az AI elemzésekhez!";
