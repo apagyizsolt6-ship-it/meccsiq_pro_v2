@@ -6,23 +6,23 @@ class StatpalService {
   static const String baseUrl = 'https://statpal.io/api';
   static const String fallbackKey = 'b5b07a3f-b019-4a18-8969-6045169feda9';
 
-  /// Prioritásos ligák (ID → megjelenő név)
+  /// Prioritásos ligák (ID → megjelenő név, ország/szervezet előtaggal)
   static const Map<String, String> priorityLeagues = {
-    '2838': 'Bajnokok Ligája',
-    '2840': 'Európa Liga',
-    '20686': 'Konferencia Liga',
-    '3037': 'Premier League',
-    '3038': 'Championship',
-    '3062': 'Bundesliga',
-    '3058': '2. Bundesliga',
-    '3054': 'Ligue 1',
-    '3050': 'Ligue 2',
-    '3102': 'Serie A',
-    '3098': 'Serie B',
-    '3232': 'La Liga',
-    '3231': 'La Liga 2',
-    '3081': 'NB I',
-    '3078': 'NB II',
+    '2838': 'UEFA – Bajnokok Ligája',
+    '2840': 'UEFA – Európa Liga',
+    '20686': 'UEFA – Konferencia Liga',
+    '3037': 'Anglia – Premier League',
+    '3038': 'Anglia – Championship',
+    '3062': 'Németország – Bundesliga',
+    '3058': 'Németország – 2. Bundesliga',
+    '3054': 'Franciaország – Ligue 1',
+    '3050': 'Franciaország – Ligue 2',
+    '3102': 'Olaszország – Serie A',
+    '3098': 'Olaszország – Serie B',
+    '3232': 'Spanyolország – La Liga',
+    '3231': 'Spanyolország – La Liga 2',
+    '3081': 'Magyarország – NB I',
+    '3078': 'Magyarország – NB II',
   };
 
   static Map<String, dynamic>? _cachedData;
@@ -36,7 +36,8 @@ class StatpalService {
     return key;
   }
 
-  Future<Map<String, dynamic>?> getLiveMatches({bool forceRefresh = false}) async {
+  Future<Map<String, dynamic>?> getLiveMatches(
+      {bool forceRefresh = false}) async {
     if (forceRefresh) {
       _cachedData = null;
       _lastFetchTime = null;
@@ -96,19 +97,20 @@ class StatpalService {
     return null;
   }
 
-  /// Prioritásos ligák – opcionális dátumszűréssel (yyyy-mm-dd vagy dd.mm.yyyy)
+  /// Prioritásos ligák – dátumszűréssel
   Future<List<Map<String, dynamic>>> getPriorityLeagueMatches({
     DateTime? filterDate,
   }) async {
     final List<Map<String, dynamic>> result = [];
 
     String? filterKey;
+    String? filterIso;
     if (filterDate != null) {
-      // StatPal formátum: "03.08.2026"
       final dd = filterDate.day.toString().padLeft(2, '0');
       final mm = filterDate.month.toString().padLeft(2, '0');
       final yyyy = filterDate.year.toString();
       filterKey = '$dd.$mm.$yyyy';
+      filterIso = '$yyyy-$mm-$dd';
     }
 
     for (final entry in priorityLeagues.entries) {
@@ -121,11 +123,12 @@ class StatpalService {
 
         var matches = _extractMatchesFromLeagueResponse(data);
 
-        // Dátumszűrés
         if (filterKey != null) {
           matches = matches.where((m) {
-            final d = m['date']?.toString() ?? '';
-            return d == filterKey;
+            final d = (m['date']?.toString() ?? '').trim();
+            if (d == filterKey) return true;
+            if (filterIso != null && d.startsWith(filterIso)) return true;
+            return false;
           }).toList();
         }
 
@@ -152,7 +155,6 @@ class StatpalService {
     final tournament = matchesRoot['tournament'];
     if (tournament is! Map) return allMatches;
 
-    // week alapú
     final weeks = tournament['week'];
     if (weeks is List) {
       for (final week in weeks) {
@@ -161,7 +163,6 @@ class StatpalService {
       }
     }
 
-    // stage alapú
     final stages = tournament['stage'];
     if (stages is List) {
       for (final stage in stages) {
