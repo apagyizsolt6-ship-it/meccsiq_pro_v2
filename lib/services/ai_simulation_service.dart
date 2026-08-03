@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:math';
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'statpal_service.dart';
 
@@ -31,6 +29,7 @@ class AiSimulationService {
   static const String _geminiApiKey = 'ITT_LEGYEN_A_GEMINI_API_KULCSOD';
   static final Map<String, String> _analysisCache = {};
 
+  // Aszinkron Monte Carlo szimuláció a Statpal élő meccslistájából
   static Future<MatchSimulationResult> runMonteCarloSimulation({
     required String homeTeam,
     required String awayTeam,
@@ -51,7 +50,6 @@ class AiSimulationService {
           final hName = match['home_team']?['name']?.toString().toLowerCase() ?? '';
           final aName = match['away_team']?['name']?.toString().toLowerCase() ?? '';
 
-          // Ha név szerint megtaláljuk a meccset a Statpal rendszerében
           if (hName.contains(homeTeam.toLowerCase()) || aName.contains(awayTeam.toLowerCase())) {
             final hGoalsAvg = double.tryParse(match['home_goals_avg']?.toString() ?? '') ?? 0.0;
             final aGoalsAvg = double.tryParse(match['away_goals_avg']?.toString() ?? '') ?? 0.0;
@@ -151,7 +149,7 @@ class AiSimulationService {
     final dynamicApiKey = (savedKey != null && savedKey.trim().isNotEmpty) ? savedKey.trim() : _geminiApiKey;
 
     final String dataSourceBadge = simulation.isStatpalLive 
-        ? "🟢 **[Statpal API valós adatok]**\n" 
+        ? "🟢 **[Statpal API élő adatok]**\n" 
         : "🔵 **[Helyi statisztikai modell]**\n";
 
     if (dynamicApiKey.isEmpty || dynamicApiKey == 'ITT_LEGYEN_A_GEMINI_API_KULCSOD') {
