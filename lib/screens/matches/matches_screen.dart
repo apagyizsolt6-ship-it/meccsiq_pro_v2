@@ -41,14 +41,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
     });
   }
 
-  /// Élő/napi + prioritásos ligák összefűzése
   Future<List<Map<String, dynamic>>> _fetchAllMatches() async {
     final List<Map<String, dynamic>> combined = [];
     final Set<String> seenLeagueIds = {};
 
-    // 1) Prioritásos ligák (BL, PL, Serie A, stb.)
+    final selected =
+        DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+
+    // 1) Prioritásos ligák – CSAK a kiválasztott nap
     try {
-      final priority = await _statpalService.getPriorityLeagueMatches();
+      final priority = await _statpalService.getPriorityLeagueMatches(
+        filterDate: selected,
+      );
       for (final lg in priority) {
         final id = lg['id']?.toString() ?? '';
         if (id.isNotEmpty) seenLeagueIds.add(id);
@@ -60,8 +64,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
     try {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      final selected =
-          DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
       final difference = selected.difference(today).inDays;
 
       Map<String, dynamic>? globalData;
@@ -91,7 +93,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
         for (final leagueGroup in leaguesList) {
           if (leagueGroup is! Map) continue;
           final leagueId = leagueGroup['id']?.toString() ?? '';
-          // Ne duplázzuk a prioritásos ligákat
           if (leagueId.isNotEmpty && seenLeagueIds.contains(leagueId)) {
             continue;
           }
@@ -103,7 +104,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           dynamic rawMatches = leagueGroup['match'];
           List<dynamic> matches = [];
           if (rawMatches is List) {
-            matches = rawMatches;
+            matches = List.from(rawMatches);
           } else if (rawMatches is Map) {
             matches = [rawMatches];
           }
@@ -308,9 +309,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   final rawMatches = leagueData['matches'];
 
                   List<dynamic> matches = [];
-                  if (rawMatches is List) {
-                    matches = rawMatches;
-                  }
+                  if (rawMatches is List) matches = rawMatches;
 
                   final validMatches = matches.where((match) {
                     if (match is! Map) return false;
@@ -351,7 +350,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
                 if (processedLeagues.isEmpty) {
                   return const Center(
-                      child: Text('Nincs a szűrésnek megfelelő mérkőzés.',
+                      child: Text(
+                          'Nincs a szűrésnek megfelelő mérkőzés ezen a napon.',
                           style: TextStyle(fontSize: 13)));
                 }
 
@@ -440,10 +440,29 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
                               final statusRaw =
                                   match['status']?.toString() ?? '';
-                              final status =
-                                  AppTranslator.translateStatus(statusRaw);
-                              final timeStr =
-                                  match['time']?.toString() ?? '';
+                              final statusUpper = statusRaw.toUpperCase();
+                              final isFinished = statusUpper == 'FT' ||
+                                  statusUpper == 'AET' ||
+                                  statusUpper == 'FT_PEN';
+                              final isNotStarted = statusUpper == 'NS' ||
+                                  statusUpper == 'NOT STARTED' ||
+                                  statusUpper.isEmpty;
+
+                              // Időpont / státusz megjelenítés
+                              String statusDisplay;
+                              if (isFinished) {
+                                statusDisplay = 'Vége';
+                              } else if (isNotStarted) {
+                                statusDisplay =
+                                    AppTranslator.formatMatchTime(
+                                  date: match['date']?.toString(),
+                                  time: match['time']?.toString(),
+                                  selectedDate: _selectedDate,
+                                );
+                              } else {
+                                statusDisplay =
+                                    AppTranslator.translateStatus(statusRaw);
+                              }
 
                               final homeTeamId =
                                   match['home']?['id']?.toString();
@@ -479,18 +498,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                   child: Row(
                                     children: [
                                       SizedBox(
-                                        width: 56,
+                                        width: 58,
                                         child: Text(
-                                          status == 'Vége'
-                                              ? 'Vége'
-                                              : (status.isEmpty
-                                                  ? timeStr
-                                                  : status),
+                                          statusDisplay,
                                           style: TextStyle(
                                             fontSize: 10,
-                                            color: status == 'Vége'
+                                            color: isFinished
                                                 ? Colors.grey
-                                                : Colors.green,
+                                                : (isNotStarted
+                                                    ? Colors.blueGrey
+                                                    : Colors.green),
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
