@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/statpal_service.dart';
+import '../../utils/app_translator.dart';
 import '../ai/ai_analysis_screen.dart';
 
 class MatchesScreen extends StatefulWidget {
@@ -12,7 +13,7 @@ class MatchesScreen extends StatefulWidget {
 
 class _MatchesScreenState extends State<MatchesScreen> {
   final StatpalService _statpalService = StatpalService();
-  late Future<Map<String, dynamic>?> _matchesFuture;
+  late Future<List<Map<String, dynamic>>> _matchesFuture;
 
   DateTime _selectedDate = DateTime.now();
   String _searchQuery = '';
@@ -36,21 +37,89 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   void _loadMatches() {
     setState(() {
+      _matchesFuture = _fetchAllMatches();
+    });
+  }
+
+  /// Élő/napi + prioritásos ligák összefűzése
+  Future<List<Map<String, dynamic>>> _fetchAllMatches() async {
+    final List<Map<String, dynamic>> combined = [];
+    final Set<String> seenLeagueIds = {};
+
+    // 1) Prioritásos ligák (BL, PL, Serie A, stb.)
+    try {
+      final priority = await _statpalService.getPriorityLeagueMatches();
+      for (final lg in priority) {
+        final id = lg['id']?.toString() ?? '';
+        if (id.isNotEmpty) seenLeagueIds.add(id);
+        combined.add(lg);
+      }
+    } catch (_) {}
+
+    // 2) Globális live / daily
+    try {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final selected =
           DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
       final difference = selected.difference(today).inDays;
 
+      Map<String, dynamic>? globalData;
       if (difference == 0) {
-        _matchesFuture = _statpalService.getLiveMatches(forceRefresh: true);
+        globalData =
+            await _statpalService.getLiveMatches(forceRefresh: true);
       } else if (difference >= -7 && difference <= 7) {
-        _matchesFuture = _statpalService.getDailyMatches(difference);
+        globalData = await _statpalService.getDailyMatches(difference);
       } else {
-        _matchesFuture =
-            _statpalService.getDailyMatches(difference > 0 ? 7 : -7);
+        globalData = await _statpalService
+            .getDailyMatches(difference > 0 ? 7 : -7);
       }
-    });
+
+      if (globalData != null) {
+        List<dynamic> leaguesList = [];
+        for (var key in globalData.keys) {
+          if (globalData[key] is Map &&
+              globalData[key]['league'] is List) {
+            leaguesList = globalData[key]['league'];
+            break;
+          }
+        }
+        if (leaguesList.isEmpty && globalData['league'] is List) {
+          leaguesList = globalData['league'];
+        }
+
+        for (final leagueGroup in leaguesList) {
+          if (leagueGroup is! Map) continue;
+          final leagueId = leagueGroup['id']?.toString() ?? '';
+          // Ne duplázzuk a prioritásos ligákat
+          if (leagueId.isNotEmpty && seenLeagueIds.contains(leagueId)) {
+            continue;
+          }
+
+          final rawName =
+              leagueGroup['name']?.toString() ?? 'Ismeretlen bajnokság';
+          final leagueName = AppTranslator.translateLeague(rawName);
+
+          dynamic rawMatches = leagueGroup['match'];
+          List<dynamic> matches = [];
+          if (rawMatches is List) {
+            matches = rawMatches;
+          } else if (rawMatches is Map) {
+            matches = [rawMatches];
+          }
+
+          if (matches.isEmpty) continue;
+
+          combined.add({
+            'name': leagueName,
+            'id': leagueId,
+            'matches': matches,
+          });
+        }
+      }
+    } catch (_) {}
+
+    return combined;
   }
 
   Future<void> _handleRefresh() async {
@@ -76,7 +145,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   void _onSearchChanged(String query) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-
     _debounceTimer = Timer(const Duration(milliseconds: 400), () {
       setState(() {
         _searchQuery = query.toLowerCase();
@@ -120,7 +188,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
               size: 20,
               color: _showOnlyLive ? Colors.red : Colors.grey,
             ),
-            tooltip: _showOnlyLive ? 'Összes meccs mutatása' : 'Csak élő meccsek',
+            tooltip:
+                _showOnlyLive ? 'Összes meccs mutatása' : 'Csak élő meccsek',
             onPressed: () {
               setState(() {
                 _showOnlyLive = !_showOnlyLive;
@@ -133,7 +202,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
             onPressed: _handleRefresh,
           ),
           IconButton(
-            icon: Icon(_allCollapsed ? Icons.unfold_more : Icons.unfold_less,
+            icon: Icon(
+                _allCollapsed ? Icons.unfold_more : Icons.unfold_less,
                 size: 20),
             tooltip: _allCollapsed ? 'Mindet kinyit' : 'Mindet összecsuk',
             onPressed: () {
@@ -181,10 +251,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     hintText: 'Keresés csapat vagy bajnokság szerint...',
                     hintStyle:
                         const TextStyle(fontSize: 12, color: Colors.grey),
-                    prefixIcon:
-                        const Icon(Icons.search, size: 18, color: Colors.grey),
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                    prefixIcon: const Icon(Icons.search,
+                        size: 18, color: Colors.grey),
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 0, horizontal: 12),
                     filled: true,
                     fillColor: const Color(0xFFF1F5F9),
                     border: OutlineInputBorder(
@@ -198,7 +268,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
           ),
           const Divider(height: 1),
           Expanded(
-            child: FutureBuilder<Map<String, dynamic>?>(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _matchesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -210,39 +280,17 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       child: Text(
                         'Hiba az adatok betöltése közben:\n${snapshot.error}',
                         textAlign: TextAlign.center,
-                        style:
-                            const TextStyle(color: Colors.grey, fontSize: 12),
+                        style: const TextStyle(
+                            color: Colors.grey, fontSize: 12),
                       ),
                     ),
                   );
-                } else if (!snapshot.hasData || snapshot.data == null) {
-                  return const Center(
-                      child: Text('Nincsenek elérhető mérkőzések.',
-                          style: TextStyle(fontSize: 13)));
-                }
-
-                final data = snapshot.data!;
-
-                List<dynamic> leaguesList = [];
-                try {
-                  for (var key in data.keys) {
-                    if (data[key] is Map && data[key]['league'] is List) {
-                      leaguesList = data[key]['league'];
-                      break;
-                    }
-                  }
-                } catch (_) {}
-
-                if (leaguesList.isEmpty && data['league'] is List) {
-                  leaguesList = data['league'];
-                }
-
-                if (leaguesList.isEmpty) {
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.all(24.0),
                       child: Text(
-                        'Nincsenek elérhető mérkőzések ezen a napon, vagy a Statpal API nem adott vissza adatot.',
+                        'Nincsenek elérhető mérkőzések ezen a napon.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
@@ -250,23 +298,21 @@ class _MatchesScreenState extends State<MatchesScreen> {
                   );
                 }
 
-                List<Map<String, dynamic>> processedLeagues = [];
+                final leagues = snapshot.data!;
+                final List<Map<String, dynamic>> processedLeagues = [];
 
-                for (var leagueGroup in leaguesList) {
+                for (final leagueData in leagues) {
                   final leagueName =
-                      leagueGroup['name']?.toString() ?? 'Ismeretlen Bajnokság';
-                  final leagueId = leagueGroup['id']?.toString();
+                      leagueData['name']?.toString() ?? 'Ismeretlen';
+                  final leagueId = leagueData['id']?.toString();
+                  final rawMatches = leagueData['matches'];
 
-                  // match lehet lista VAGY egyetlen objektum
-                  dynamic rawMatches = leagueGroup['match'];
                   List<dynamic> matches = [];
                   if (rawMatches is List) {
                     matches = rawMatches;
-                  } else if (rawMatches is Map) {
-                    matches = [rawMatches];
                   }
 
-                  List<dynamic> validMatches = matches.where((match) {
+                  final validMatches = matches.where((match) {
                     if (match is! Map) return false;
                     final status =
                         match['status']?.toString().toUpperCase() ?? '';
@@ -275,15 +321,18 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       if (!(status.contains('LIVE') ||
                           status.contains('1H') ||
                           status.contains('2H') ||
-                          status == 'HT')) {
+                          status == 'HT' ||
+                          status.contains('IN_PLAY'))) {
                         return false;
                       }
                     }
 
-                    final home =
-                        match['home']?['name']?.toString().toLowerCase() ?? '';
-                    final away =
-                        match['away']?['name']?.toString().toLowerCase() ?? '';
+                    final home = AppTranslator.translateTeam(
+                            match['home']?['name']?.toString() ?? '')
+                        .toLowerCase();
+                    final away = AppTranslator.translateTeam(
+                            match['away']?['name']?.toString() ?? '')
+                        .toLowerCase();
                     final league = leagueName.toLowerCase();
 
                     return home.contains(_searchQuery) ||
@@ -369,20 +418,32 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           ),
                           if (!isCollapsed)
                             ...leagueMatches.map((match) {
-                              final homeTeam =
-                                  match['home']?['name']?.toString() ?? 'Hazai';
-                              final awayTeam =
+                              final homeRaw =
+                                  match['home']?['name']?.toString() ??
+                                      'Hazai';
+                              final awayRaw =
                                   match['away']?['name']?.toString() ??
                                       'Vendég';
+                              final homeTeam =
+                                  AppTranslator.translateTeam(homeRaw);
+                              final awayTeam =
+                                  AppTranslator.translateTeam(awayRaw);
+
                               final homeScore = match['home']?['goals'] ??
+                                  match['home']?['score'] ??
                                   match['ft']?['home_goals'] ??
                                   '-';
                               final awayScore = match['away']?['goals'] ??
+                                  match['away']?['score'] ??
                                   match['ft']?['away_goals'] ??
                                   '-';
+
+                              final statusRaw =
+                                  match['status']?.toString() ?? '';
                               final status =
-                                  match['status']?.toString() ?? 'Kezdés';
-                              final timeStr = match['time']?.toString() ?? '';
+                                  AppTranslator.translateStatus(statusRaw);
+                              final timeStr =
+                                  match['time']?.toString() ?? '';
 
                               final homeTeamId =
                                   match['home']?['id']?.toString();
@@ -418,16 +479,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                   child: Row(
                                     children: [
                                       SizedBox(
-                                        width: 50,
+                                        width: 56,
                                         child: Text(
-                                          status == 'FT'
+                                          status == 'Vége'
                                               ? 'Vége'
                                               : (status.isEmpty
                                                   ? timeStr
                                                   : status),
                                           style: TextStyle(
                                             fontSize: 10,
-                                            color: status == 'FT'
+                                            color: status == 'Vége'
                                                 ? Colors.grey
                                                 : Colors.green,
                                             fontWeight: FontWeight.bold,
@@ -444,8 +505,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                               style: const TextStyle(
                                                   fontSize: 11.5,
                                                   color: Colors.black87,
-                                                  fontWeight: FontWeight.w500),
-                                              overflow: TextOverflow.ellipsis,
+                                                  fontWeight:
+                                                      FontWeight.w500),
+                                              overflow:
+                                                  TextOverflow.ellipsis,
                                             ),
                                             const SizedBox(height: 1),
                                             Text(
@@ -453,8 +516,10 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                               style: const TextStyle(
                                                   fontSize: 11.5,
                                                   color: Colors.black54,
-                                                  fontWeight: FontWeight.w400),
-                                              overflow: TextOverflow.ellipsis,
+                                                  fontWeight:
+                                                      FontWeight.w400),
+                                              overflow:
+                                                  TextOverflow.ellipsis,
                                             ),
                                           ],
                                         ),
