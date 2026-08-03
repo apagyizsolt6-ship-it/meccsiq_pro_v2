@@ -4,7 +4,7 @@ class AppTranslator {
     final s = status.toUpperCase().trim();
     if (s == 'FT' || s == 'AET' || s == 'FT_PEN') return 'Vége';
     if (s == 'HT') return 'Félidő';
-    if (s == 'NS' || s == 'NOT STARTED') return 'Kezdésre vár';
+    if (s == 'NS' || s == 'NOT STARTED') return 'NS'; // időpontot mutatunk helyette
     if (s == '1H') return '1. félidő';
     if (s == '2H') return '2. félidő';
     if (s == 'ET') return 'Hosszabbítás';
@@ -51,14 +51,51 @@ class AppTranslator {
       'mexico': 'Mexikó',
       'usa': 'USA',
       'world': 'Világ',
+      'armenia': 'Örményország',
+      'estonia': 'Észtország',
+      'latvia': 'Lettország',
+      'lithuania': 'Litvánia',
+      'iceland': 'Izland',
+      'ireland': 'Írország',
+      'india': 'India',
+      'bhutan': 'Bhután',
+      'bolivia': 'Bolívia',
+      'chile': 'Chile',
+      'colombia': 'Kolumbia',
+      'costa rica': 'Costa Rica',
+      'ecuador': 'Ecuador',
+      'el salvador': 'El Salvador',
+      'guatemala': 'Guatemala',
+      'honduras': 'Honduras',
+      'paraguay': 'Paraguay',
+      'peru': 'Peru',
+      'uruguay': 'Uruguay',
+      'venezuela': 'Venezuela',
+      'bulgaria': 'Bulgária',
+      'montenegro': 'Montenegró',
+      'slovakia': 'Szlovákia',
+      'uzbekistan': 'Üzbegisztán',
+      'kyrgyzstan': 'Kirgizisztán',
+      'panama': 'Panama',
+      'sri lanka': 'Srí Lanka',
     };
     return map[c] ?? country;
   }
 
-  // Bajnokságok
+  // Bajnokságok – PONTOS egyezés előnyben, ne nyeljen el mindent "Premier League"-nek
   static String translateLeague(String leagueName) {
     String l = leagueName.trim();
 
+    // Először: "Ország: Liga" formátum bontása
+    String countryPart = '';
+    String namePart = l;
+    if (l.contains(':')) {
+      final parts = l.split(':');
+      countryPart = parts[0].trim();
+      namePart = parts.sublist(1).join(':').trim();
+    }
+
+    // Pontos / ismert nevek
     final exactMatches = {
       // Nemzetközi
       'UEFA Champions League': 'Bajnokok Ligája',
@@ -68,12 +105,14 @@ class AppTranslator {
       'UEFA Super Cup': 'UEFA Szuperkupa',
       'UEFA European Championship': 'Európa-bajnokság',
       'UEFA Nations League': 'Nemzetek Ligája',
-      'International Friendlies': 'Nemzetközi Felkészülési Mérkőzések',
-      'Club Friendlies': 'Klubcsapatok Felkészülési Mérkőzései',
-      'World: Club Friendly': 'Klub Felkészülési Mérkőzés',
-      'World: Friendly International': 'Nemzetközi Felkészülési Mérkőzés',
+      'International Friendlies': 'Nemzetközi felkészülési mérkőzések',
+      'Club Friendlies': 'Klub felkészülési mérkőzések',
+      'World: Club Friendly': 'Klub felkészülési mérkőzés',
+      'World: Friendly International': 'Nemzetközi felkészülési mérkőzés',
+      'Club Friendly': 'Klub felkészülési mérkőzés',
+      'Friendly International': 'Nemzetközi felkészülési mérkőzés',
 
-      // Anglia
+      // Anglia – CSAK ezek legyenek "Premier League"
       'Premier League': 'Premier League',
       'English Premier League': 'Premier League',
       'Championship': 'Championship (angol 2.)',
@@ -82,6 +121,7 @@ class AppTranslator {
       'League Two': 'League Two (angol 4.)',
       'FA Cup': 'FA Kupa',
       'EFL Cup': 'EFL Kupa',
+      'Efl Cup - Preliminary': 'EFL Kupa',
       'England: Efl Cup - Preliminary': 'EFL Kupa',
 
       // Németország
@@ -104,65 +144,94 @@ class AppTranslator {
       'Primera': 'La Liga',
       'La Liga': 'La Liga',
       'Spanish La Liga': 'La Liga',
-      'Segunda': 'La Liga 2 (Segunda)',
+      'Segunda': 'La Liga 2',
       'Spain Cup': 'Spanyol Kupa',
 
       // Magyarország
       'NB I': 'NB I',
+      'NB I.': 'NB I',
       'Hungarian NB I': 'NB I',
       'Nb II': 'NB II',
       'Hungarian NB II': 'NB II',
       'Nb III': 'NB III',
 
-      // Egyéb
-      'Eredivisie': 'Eredivisie (Holland 1.)',
+      // Egyéb top
+      'Eredivisie': 'Eredivisie',
       'Portuguese Liga': 'Portugál Liga',
       'Primeira Liga': 'Portugál Liga',
-      'Swedish Allsvenskan': 'Svéd Allsvenskan',
-      'Norwegian Eliteserien': 'Norvég Eliteserien',
+      'Allsvenskan': 'Allsvenskan',
+      'Swedish Allsvenskan': 'Allsvenskan',
+      'Eliteserien': 'Eliteserien',
+      'Superliga': 'Superliga',
       'Danish Superliga': 'Dán Superliga',
-      'American Major League Soccer': 'MLS',
-      'MLS Next Pro': 'MLS Next Pro',
+      'Ekstraklasa': 'Ekstraklasa',
+      'Premiership': 'Premiership',
     };
 
-    if (exactMatches.containsKey(l)) {
-      return exactMatches[l]!;
+    // Teljes név pontos egyezés
+    if (exactMatches.containsKey(l)) return exactMatches[l]!;
+    if (exactMatches.containsKey(namePart)) {
+      final translated = exactMatches[namePart]!;
+      // Ha van ország prefix és NEM top liga, tedd ki az országot
+      if (countryPart.isNotEmpty &&
+          !['Premier League', 'Bundesliga', 'Serie A', 'La Liga', 'Ligue 1', 'NB I', 'NB II']
+              .contains(translated)) {
+        return '${translateCountry(countryPart)}: $translated';
+      }
+      return translated;
     }
 
-    // Részleges egyezések
-    final lower = l.toLowerCase();
-    if (lower.contains('champions league')) return 'Bajnokok Ligája';
-    if (lower.contains('europa league') && !lower.contains('conference')) {
+    final lower = namePart.toLowerCase();
+    final fullLower = l.toLowerCase();
+
+    // Nemzetközi kupák (részleges)
+    if (fullLower.contains('champions league')) return 'Bajnokok Ligája';
+    if (fullLower.contains('europa league') && !fullLower.contains('conference')) {
       return 'Európa Liga';
     }
-    if (lower.contains('conference league')) return 'Konferencia Liga';
-    if (lower.contains('premier league')) return 'Premier League';
-    if (lower.contains('bundesliga') && lower.contains('2')) {
-      return '2. Bundesliga';
+    if (fullLower.contains('conference league')) return 'Konferencia Liga';
+
+    // Angol Premier – CSAK ha angol / england
+    if (lower == 'premier league' || lower == 'english premier league') {
+      return 'Premier League';
     }
+
+    // Ország: Premier League → "Örményország: Premier Liga" stb.
+    if (lower.contains('premier league') || lower == 'premier liga') {
+      if (countryPart.isNotEmpty) {
+        return '${translateCountry(countryPart)}: Premier Liga';
+      }
+      return namePart; // ne nyeld el
+    }
+
+    if (lower.contains('bundesliga') && lower.contains('2')) return '2. Bundesliga';
     if (lower.contains('bundesliga')) return 'Bundesliga';
     if (lower.contains('ligue 1')) return 'Ligue 1';
     if (lower.contains('ligue 2')) return 'Ligue 2';
     if (lower.contains('serie a')) return 'Serie A';
     if (lower.contains('serie b')) return 'Serie B';
-    if (lower.contains('la liga') || lower == 'primera') return 'La Liga';
+    if (lower == 'primera' || lower.contains('la liga')) return 'La Liga';
     if (lower.contains('segunda') && !lower.contains('b')) return 'La Liga 2';
     if (lower.contains('nb i') || lower == 'nb i.') return 'NB I';
     if (lower.contains('nb ii')) return 'NB II';
 
-    // Általános helyettesítések
-    l = l.replaceAll('Premier Division', 'Premier Liga');
-    l = l.replaceAll('First Division', '1. osztály');
-    l = l.replaceAll('Second Division', '2. osztály');
-    l = l.replaceAll('Friendlies', 'Felkészülési mérkőzések');
-    l = l.replaceAll('Super League', 'Szuperliga');
-    l = l.replaceAll('Women', 'Női');
-    l = l.replaceAll('Cup', 'Kupa');
+    // Ország prefix megmarad, név finomítva
+    String result = namePart;
+    result = result.replaceAll('Premier Division', 'Premier Liga');
+    result = result.replaceAll('First Division', '1. osztály');
+    result = result.replaceAll('Second Division', '2. osztály');
+    result = result.replaceAll('Friendlies', 'Felkészülési mérkőzések');
+    result = result.replaceAll('Super League', 'Szuperliga');
+    result = result.replaceAll('Women', 'Női');
+    result = result.replaceAll('Cup', 'Kupa');
 
-    return l;
+    if (countryPart.isNotEmpty) {
+      return '${translateCountry(countryPart)}: $result';
+    }
+    return result;
   }
 
-  // Csapatnevek (gyakori / fontosabb)
+  // Csapatnevek
   static String translateTeam(String teamName) {
     final t = teamName.trim();
     const map = {
@@ -220,5 +289,47 @@ class AppTranslator {
       'Kisvárda': 'Kisvárda',
     };
     return map[t] ?? t;
+  }
+
+  /// Dátum formázás megjelenítéshez: "03.08.2026" → "08.03." vagy csak idő
+  static String formatMatchTime({
+    required String? date,
+    required String? time,
+    required DateTime selectedDate,
+  }) {
+    final t = (time ?? '').trim();
+    final d = (date ?? '').trim();
+
+    // Parse date: "03.08.2026" vagy "21.08.2026"
+    DateTime? matchDate;
+    if (d.isNotEmpty) {
+      try {
+        final parts = d.split('.');
+        if (parts.length >= 3) {
+          final day = int.parse(parts[0]);
+          final month = int.parse(parts[1]);
+          final year = int.parse(parts[2]);
+          matchDate = DateTime(year, month, day);
+        }
+      } catch (_) {}
+    }
+
+    final sel = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+
+    if (matchDate != null) {
+      final sameDay = matchDate.year == sel.year &&
+          matchDate.month == sel.month &&
+          matchDate.day == sel.day;
+      if (sameDay) {
+        return t.isNotEmpty ? t : '–';
+      }
+      // Más nap: "21.08. 19:00"
+      final dd = matchDate.day.toString().padLeft(2, '0');
+      final mm = matchDate.month.toString().padLeft(2, '0');
+      if (t.isNotEmpty) return '$dd.$mm. $t';
+      return '$dd.$mm.';
+    }
+
+    return t.isNotEmpty ? t : '–';
   }
 }
