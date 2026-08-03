@@ -48,7 +48,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
     final selected =
         DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
 
-    // 1) Prioritásos ligák – CSAK a kiválasztott nap
+    // 1) Prioritásos ligák – csak a kiválasztott nap
     try {
       final priority = await _statpalService.getPriorityLeagueMatches(
         filterDate: selected,
@@ -92,14 +92,70 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
         for (final leagueGroup in leaguesList) {
           if (leagueGroup is! Map) continue;
+
           final leagueId = leagueGroup['id']?.toString() ?? '';
           if (leagueId.isNotEmpty && seenLeagueIds.contains(leagueId)) {
             continue;
           }
 
+          final country = leagueGroup['country']?.toString() ?? '';
           final rawName =
               leagueGroup['name']?.toString() ?? 'Ismeretlen bajnokság';
-          final leagueName = AppTranslator.translateLeague(rawName);
+
+          final rawFull = country.isNotEmpty && !rawName.contains(':')
+              ? '$country: $rawName'
+              : rawName;
+
+          var leagueName = AppTranslator.translateLeague(rawFull);
+
+          // Biztonsági háló – rossz ID ne kapjon top nevet
+          if (leagueName == 'Anglia – Premier League' &&
+              leagueId != '3037') {
+            leagueName = country.isNotEmpty
+                ? '${AppTranslator.translateCountry(country)} – Premier Liga'
+                : 'Premier Liga';
+          }
+          if (leagueName == 'Spanyolország – La Liga' &&
+              leagueId != '3232') {
+            leagueName = country.isNotEmpty
+                ? '${AppTranslator.translateCountry(country)} – $rawName'
+                : rawName;
+          }
+          if (leagueName == 'Spanyolország – La Liga 2' &&
+              leagueId != '3231') {
+            leagueName = country.isNotEmpty
+                ? '${AppTranslator.translateCountry(country)} – Segunda'
+                : 'Segunda';
+          }
+          if (leagueName == 'UEFA – Bajnokok Ligája' &&
+              leagueId != '2838') {
+            leagueName = country.isNotEmpty
+                ? '${AppTranslator.translateCountry(country)} – $rawName'
+                : rawName;
+          }
+          if (leagueName == 'UEFA – Európa Liga' && leagueId != '2840') {
+            leagueName = country.isNotEmpty
+                ? '${AppTranslator.translateCountry(country)} – $rawName'
+                : rawName;
+          }
+          if (leagueName == 'Olaszország – Serie A' &&
+              leagueId != '3102') {
+            leagueName = country.isNotEmpty
+                ? '${AppTranslator.translateCountry(country)} – $rawName'
+                : rawName;
+          }
+          if (leagueName == 'Németország – Bundesliga' &&
+              leagueId != '3062') {
+            leagueName = country.isNotEmpty
+                ? '${AppTranslator.translateCountry(country)} – $rawName'
+                : rawName;
+          }
+          if (leagueName == 'Franciaország – Ligue 1' &&
+              leagueId != '3054') {
+            leagueName = country.isNotEmpty
+                ? '${AppTranslator.translateCountry(country)} – $rawName'
+                : rawName;
+          }
 
           dynamic rawMatches = leagueGroup['match'];
           List<dynamic> matches = [];
@@ -108,7 +164,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
           } else if (rawMatches is Map) {
             matches = [rawMatches];
           }
-
           if (matches.isEmpty) continue;
 
           combined.add({
@@ -293,7 +348,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       child: Text(
                         'Nincsenek elérhető mérkőzések ezen a napon.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ),
                   );
@@ -377,7 +433,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                           InkWell(
                             onTap: () {
                               setState(() {
-                                if (_collapsedLeagues.contains(leagueName)) {
+                                if (_collapsedLeagues
+                                    .contains(leagueName)) {
                                   _collapsedLeagues.remove(leagueName);
                                 } else {
                                   _collapsedLeagues.add(leagueName);
@@ -448,7 +505,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                   statusUpper == 'NOT STARTED' ||
                                   statusUpper.isEmpty;
 
-                              // Időpont / státusz megjelenítés
                               String statusDisplay;
                               if (isFinished) {
                                 statusDisplay = 'Vége';
@@ -461,7 +517,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                 );
                               } else {
                                 statusDisplay =
-                                    AppTranslator.translateStatus(statusRaw);
+                                    AppTranslator.translateStatus(
+                                        statusRaw);
                               }
 
                               final homeTeamId =
@@ -474,7 +531,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => AiAnalysisScreen(
+                                      builder: (context) =>
+                                          AiAnalysisScreen(
                                         homeTeam: homeTeam,
                                         awayTeam: awayTeam,
                                         leagueName: leagueName,
@@ -556,7 +614,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                             '$homeScore',
                                             style: const TextStyle(
                                                 fontSize: 11.5,
-                                                fontWeight: FontWeight.bold,
+                                                fontWeight:
+                                                    FontWeight.bold,
                                                 color: Colors.black87),
                                           ),
                                           const SizedBox(height: 1),
@@ -564,7 +623,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                             '$awayScore',
                                             style: const TextStyle(
                                                 fontSize: 11.5,
-                                                fontWeight: FontWeight.bold,
+                                                fontWeight:
+                                                    FontWeight.bold,
                                                 color: Colors.black87),
                                           ),
                                         ],
