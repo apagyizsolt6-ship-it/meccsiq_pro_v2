@@ -32,13 +32,10 @@ class StatpalService {
   Future<String?> _getAccessKey() async {
     final prefs = await SharedPreferences.getInstance();
     final key = prefs.getString('statpal_key');
-    if (key == null || key.isEmpty) {
-      return fallbackKey;
-    }
+    if (key == null || key.isEmpty) return fallbackKey;
     return key;
   }
 
-  // 1. Élő meccsek
   Future<Map<String, dynamic>?> getLiveMatches({bool forceRefresh = false}) async {
     if (forceRefresh) {
       _cachedData = null;
@@ -69,7 +66,6 @@ class StatpalService {
     return _cachedData;
   }
 
-  // 2. Napi meccsek
   Future<Map<String, dynamic>?> getDailyMatches(int offset) async {
     final apiKey = await _getAccessKey();
     final url = Uri.parse(
@@ -85,7 +81,6 @@ class StatpalService {
     return null;
   }
 
-  // 3. Liga meccsei (prioritásos ligákhoz)
   Future<Map<String, dynamic>?> getMatchesByLeague(String leagueId) async {
     final apiKey = await _getAccessKey();
     final url = Uri.parse(
@@ -101,10 +96,20 @@ class StatpalService {
     return null;
   }
 
-  /// Prioritásos ligák meccseinek lekérése + egységes lista
-  /// Visszatérés: List of { name, id, matches: [...] }
-  Future<List<Map<String, dynamic>>> getPriorityLeagueMatches() async {
+  /// Prioritásos ligák – opcionális dátumszűréssel (yyyy-mm-dd vagy dd.mm.yyyy)
+  Future<List<Map<String, dynamic>>> getPriorityLeagueMatches({
+    DateTime? filterDate,
+  }) async {
     final List<Map<String, dynamic>> result = [];
+
+    String? filterKey;
+    if (filterDate != null) {
+      // StatPal formátum: "03.08.2026"
+      final dd = filterDate.day.toString().padLeft(2, '0');
+      final mm = filterDate.month.toString().padLeft(2, '0');
+      final yyyy = filterDate.year.toString();
+      filterKey = '$dd.$mm.$yyyy';
+    }
 
     for (final entry in priorityLeagues.entries) {
       final leagueId = entry.key;
@@ -114,7 +119,16 @@ class StatpalService {
         final data = await getMatchesByLeague(leagueId);
         if (data == null) continue;
 
-        final matches = _extractMatchesFromLeagueResponse(data);
+        var matches = _extractMatchesFromLeagueResponse(data);
+
+        // Dátumszűrés
+        if (filterKey != null) {
+          matches = matches.where((m) {
+            final d = m['date']?.toString() ?? '';
+            return d == filterKey;
+          }).toList();
+        }
+
         if (matches.isEmpty) continue;
 
         result.add({
@@ -122,15 +136,12 @@ class StatpalService {
           'id': leagueId,
           'matches': matches,
         });
-      } catch (_) {
-        // egy liga hibája ne állítsa le a többit
-      }
+      } catch (_) {}
     }
 
     return result;
   }
 
-  /// Liga-matches válaszból kinyeri a meccseket (week VAGY stage struktúra)
   List<Map<String, dynamic>> _extractMatchesFromLeagueResponse(
       Map<String, dynamic> data) {
     final List<Map<String, dynamic>> allMatches = [];
@@ -141,7 +152,7 @@ class StatpalService {
     final tournament = matchesRoot['tournament'];
     if (tournament is! Map) return allMatches;
 
-    // 1) week alapú (pl. Premier League)
+    // week alapú
     final weeks = tournament['week'];
     if (weeks is List) {
       for (final week in weeks) {
@@ -150,14 +161,13 @@ class StatpalService {
       }
     }
 
-    // 2) stage alapú (pl. BL selejtező)
+    // stage alapú
     final stages = tournament['stage'];
     if (stages is List) {
       for (final stage in stages) {
         if (stage is! Map) continue;
         _collectMatchList(stage['match'], allMatches);
 
-        // néha stage-en belül is van week
         final innerWeeks = stage['week'];
         if (innerWeeks is List) {
           for (final week in innerWeeks) {
@@ -168,7 +178,6 @@ class StatpalService {
       }
     }
 
-    // Egységes mezők (goals / score)
     for (final m in allMatches) {
       final home = m['home'];
       final away = m['away'];
@@ -182,6 +191,7 @@ class StatpalService {
       }
       m['status'] = m['status']?.toString() ?? '';
       m['time'] = m['time']?.toString() ?? '';
+      m['date'] = m['date']?.toString() ?? '';
     }
 
     return allMatches;
@@ -190,22 +200,16 @@ class StatpalService {
   void _collectMatchList(dynamic raw, List<Map<String, dynamic>> out) {
     if (raw is List) {
       for (final m in raw) {
-        if (m is Map<String, dynamic>) {
-          out.add(Map<String, dynamic>.from(m));
-        } else if (m is Map) {
-          out.add(Map<String, dynamic>.from(m));
-        }
+        if (m is Map) out.add(Map<String, dynamic>.from(m));
       }
     } else if (raw is Map) {
       out.add(Map<String, dynamic>.from(raw));
     }
   }
 
-  // 4. Ligák listája
   Future<Map<String, dynamic>?> getLeagues() async {
     final apiKey = await _getAccessKey();
     final url = Uri.parse('$baseUrl/v2/soccer/leagues?access_key=$apiKey');
-
     try {
       final response =
           await http.get(url, headers: {'Accept': 'application/json'});
@@ -216,13 +220,11 @@ class StatpalService {
     return null;
   }
 
-  // 5. H2H
   Future<Map<String, dynamic>?> getHeadToHeadStats(
       String team1Id, String team2Id) async {
     final apiKey = await _getAccessKey();
     final url = Uri.parse(
         '$baseUrl/v2/soccer/head-to-head?access_key=$apiKey&team1_id=$team1Id&team2_id=$team2Id');
-
     try {
       final response =
           await http.get(url, headers: {'Accept': 'application/json'});
@@ -233,12 +235,10 @@ class StatpalService {
     return null;
   }
 
-  // 6. Tabella
   Future<Map<String, dynamic>?> getStandings(String leagueId) async {
     final apiKey = await _getAccessKey();
     final url = Uri.parse(
         '$baseUrl/v2/soccer/leagues/$leagueId/standings?access_key=$apiKey');
-
     try {
       final response =
           await http.get(url, headers: {'Accept': 'application/json'});
@@ -249,20 +249,15 @@ class StatpalService {
     return null;
   }
 
-  // 7. Liga meccs statisztikák
   Future<Map<String, dynamic>?> getLeagueMatchStats(String leagueId,
       {String? date}) async {
     final apiKey = await _getAccessKey();
     String urlStr =
         '$baseUrl/v2/soccer/leagues/$leagueId/matches/stats?access_key=$apiKey';
-    if (date != null && date.isNotEmpty) {
-      urlStr += '&date=$date';
-    }
-    final url = Uri.parse(urlStr);
-
+    if (date != null && date.isNotEmpty) urlStr += '&date=$date';
     try {
-      final response =
-          await http.get(url, headers: {'Accept': 'application/json'});
+      final response = await http
+          .get(Uri.parse(urlStr), headers: {'Accept': 'application/json'});
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
