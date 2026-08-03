@@ -19,8 +19,13 @@ class StatpalService {
     return key;
   }
 
-  // 1. Élő meccsek lekérése a Statpal-ból
+  // 1. Élő meccsek
   Future<Map<String, dynamic>?> getLiveMatches({bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      _cachedData = null;
+      _lastFetchTime = null;
+    }
+
     if (!forceRefresh && _cachedData != null && _lastFetchTime != null) {
       if (DateTime.now().difference(_lastFetchTime!) < _cacheDuration) {
         return _cachedData;
@@ -32,7 +37,6 @@ class StatpalService {
 
     try {
       final response = await http.get(url, headers: {'Accept': 'application/json'});
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         _cachedData = data;
@@ -43,14 +47,13 @@ class StatpalService {
     return _cachedData;
   }
 
-  // 2. Napi / közelgő meccsek lekérése offset alapján (pl. -7 és 7 nap között)
+  // 2. Napi meccsek
   Future<Map<String, dynamic>?> getDailyMatches(int offset) async {
     final apiKey = await _getAccessKey();
     final url = Uri.parse('$baseUrl/v2/soccer/matches/daily?offset=$offset&access_key=$apiKey');
 
     try {
       final response = await http.get(url, headers: {'Accept': 'application/json'});
-
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -58,14 +61,13 @@ class StatpalService {
     return null;
   }
 
-  // 3. Ligák listájának lekérése
+  // 3. Ligák
   Future<Map<String, dynamic>?> getLeagues() async {
     final apiKey = await _getAccessKey();
     final url = Uri.parse('$baseUrl/v2/soccer/leagues?access_key=$apiKey');
 
     try {
       final response = await http.get(url, headers: {'Accept': 'application/json'});
-
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -73,10 +75,11 @@ class StatpalService {
     return null;
   }
 
-  // 4. Egymás elleni múlt (H2H) lekérése a két csapat ID-ja alapján
+  // 4. H2H
   Future<Map<String, dynamic>?> getHeadToHeadStats(String team1Id, String team2Id) async {
     final apiKey = await _getAccessKey();
-    final url = Uri.parse('$baseUrl/v2/soccer/head-to-head?access_key=$apiKey&team1_id=$team1Id&team2_id=$team2Id');
+    final url = Uri.parse(
+        '$baseUrl/v2/soccer/head-to-head?access_key=$apiKey&team1_id=$team1Id&team2_id=$team2Id');
 
     try {
       final response = await http.get(url, headers: {'Accept': 'application/json'});
@@ -87,7 +90,21 @@ class StatpalService {
     return null;
   }
 
-  // 5. Részletes meccs statisztikák ligánként
+  // 5. Tabella / Standings (ÚJ)
+  Future<Map<String, dynamic>?> getStandings(String leagueId) async {
+    final apiKey = await _getAccessKey();
+    final url = Uri.parse('$baseUrl/v2/soccer/leagues/$leagueId/standings?access_key=$apiKey');
+
+    try {
+      final response = await http.get(url, headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // 6. Liga meccs statisztikák
   Future<Map<String, dynamic>?> getLeagueMatchStats(String leagueId, {String? date}) async {
     final apiKey = await _getAccessKey();
     String urlStr = '$baseUrl/v2/soccer/leagues/$leagueId/matches/stats?access_key=$apiKey';
