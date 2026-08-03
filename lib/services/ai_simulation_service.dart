@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'statpal_service.dart';
 
 class MatchSimulationResult {
   final double homeWinProbability;
@@ -30,12 +31,9 @@ class AiSimulationService {
   static const String _geminiApiKey = 'ITT_LEGYEN_A_GEMINI_API_KULCSOD';
   static final Map<String, String> _analysisCache = {};
 
-  // Aszinkron Monte Carlo szimuláció, ami lekérdezi a Statpal API-t
   static Future<MatchSimulationResult> runMonteCarloSimulation({
     required String homeTeam,
     required String awayTeam,
-    int? team1Id,
-    int? team2Id,
     int simulations = 50000,
   }) async {
     double homeLambda = 1.4;
@@ -43,41 +41,26 @@ class AiSimulationService {
     bool statpalLive = false;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final statpalKey = prefs.getString('statpal_key') ?? 'b5b07a3f-b019-4a18-8969-6045169feda9';
+      final statpalService = StatpalService();
+      final liveData = await statpalService.getLiveMatches();
 
-      // Ha rendelkezésre állnak ID-k, lekérdezzük a valós Statpal H2H adatot
-      if (team1Id != null && team2Id != null && statpalKey.isNotEmpty) {
-        final url = Uri.parse('https://statpal.io/api/v2/soccer/head-to-head?access_key=$statpalKey&team1_id=$team1Id&team2_id=$team2Id');
-        final response = await http.get(url, headers: {'Accept': 'application/json'});
+      if (liveData != null && liveData['matches'] != null) {
+        final matches = liveData['matches'] as List<dynamic>;
 
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final h2h = data['head-to-head'];
+        for (var match in matches) {
+          final hName = match['home_team']?['name']?.toString().toLowerCase() ?? '';
+          final aName = match['away_team']?['name']?.toString().toLowerCase() ?? '';
 
-          if (h2h != null && h2h['goals'] != null) {
-            final goalsTotal = h2h['goals']['total']['total'] as List<dynamic>;
-            final overallTotal = h2h['overall_record']['total']['total'] as List<dynamic>;
+          // Ha név szerint megtaláljuk a meccset a Statpal rendszerében
+          if (hName.contains(homeTeam.toLowerCase()) || aName.contains(awayTeam.toLowerCase())) {
+            final hGoalsAvg = double.tryParse(match['home_goals_avg']?.toString() ?? '') ?? 0.0;
+            final aGoalsAvg = double.tryParse(match['away_goals_avg']?.toString() ?? '') ?? 0.0;
 
-            int totalGames = 1;
-            for (var item in overallTotal) {
-              if (item['games'] != null) {
-                totalGames = int.tryParse(item['games'].toString()) ?? 1;
-              }
-            }
-
-            double t1Scored = 0;
-            double t2Scored = 0;
-
-            for (var item in goalsTotal) {
-              if (item['team1_scored'] != null) t1Scored = double.tryParse(item['team1_scored'].toString()) ?? 0;
-              if (item['team2_scored'] != null) t2Scored = double.tryParse(item['team2_scored'].toString()) ?? 0;
-            }
-
-            if (totalGames > 0) {
-              homeLambda = (t1Scored / totalGames).clamp(0.5, 3.5);
-              awayLambda = (t2Scored / totalGames).clamp(0.5, 3.5);
+            if (hGoalsAvg > 0 && aGoalsAvg > 0) {
+              homeLambda = hGoalsAvg.clamp(0.5, 3.5);
+              awayLambda = aGoalsAvg.clamp(0.5, 3.5);
               statpalLive = true;
+              break;
             }
           }
         }
@@ -168,7 +151,7 @@ class AiSimulationService {
     final dynamicApiKey = (savedKey != null && savedKey.trim().isNotEmpty) ? savedKey.trim() : _geminiApiKey;
 
     final String dataSourceBadge = simulation.isStatpalLive 
-        ? "🟢 **[Statpal API Head-to-Head valós adatok]**\n" 
+        ? "🟢 **[Statpal API valós adatok]**\n" 
         : "🔵 **[Helyi statisztikai modell]**\n";
 
     if (dynamicApiKey.isEmpty || dynamicApiKey == 'ITT_LEGYEN_A_GEMINI_API_KULCSOD') {
