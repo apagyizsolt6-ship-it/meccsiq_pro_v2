@@ -7,6 +7,7 @@ class AiAnalysisScreen extends StatefulWidget {
   final String leagueName;
   final String? team1Id;
   final String? team2Id;
+  final String? leagueId;
 
   const AiAnalysisScreen({
     super.key,
@@ -15,6 +16,7 @@ class AiAnalysisScreen extends StatefulWidget {
     required this.leagueName,
     this.team1Id,
     this.team2Id,
+    this.leagueId,
   });
 
   @override
@@ -33,12 +35,12 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
   }
 
   Future<void> _runAnalysis() async {
-    // Lefuttatjuk a szimulációt a valós Statpal ID-k figyelembevételével
     final result = await AiSimulationService.runMonteCarloSimulation(
       homeTeam: widget.homeTeam,
       awayTeam: widget.awayTeam,
       team1Id: widget.team1Id,
       team2Id: widget.team2Id,
+      leagueId: widget.leagueId,
     );
 
     final analysis = await AiSimulationService.getAiMatchAnalysis(
@@ -61,7 +63,8 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
-        title: const Text('AI & Monte Carlo Elemzés', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        title: const Text('AI & Monte Carlo Elemzés',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
@@ -77,7 +80,10 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                   Text(
                     'Statpal adatok lekérése és\n50 000 szimuláció futtatása...\n${widget.homeTeam} vs ${widget.awayTeam}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -87,9 +93,11 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Fejléc
                   Card(
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     color: Colors.white,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -97,7 +105,10 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                         children: [
                           Text(
                             widget.leagueName.toUpperCase(),
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blueGrey),
                           ),
                           const SizedBox(height: 12),
                           Row(
@@ -107,18 +118,28 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                                 child: Text(
                                   widget.homeTeam,
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87),
                                 ),
                               ),
                               const Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 8.0),
-                                child: Text('VS', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                child: Text('VS',
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey)),
                               ),
                               Expanded(
                                 child: Text(
                                   widget.awayTeam,
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87),
                                 ),
                               ),
                             ],
@@ -128,9 +149,12 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
+
+                  // Monte Carlo esélyek
                   Card(
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     color: Colors.white,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -142,27 +166,45 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                             children: [
                               const Text(
                                 'Monte Carlo Esélyek',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87),
                               ),
                               Text(
                                 '${_simulationResult.totalSimulations} futtatás',
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.grey),
                               ),
                             ],
                           ),
                           const Divider(height: 20),
-                          _buildProbabilityRow('Hazai győzelem (${widget.homeTeam})', _simulationResult.homeWinProbability, Colors.green),
+                          _buildProbabilityRow(
+                              'Hazai győzelem (${widget.homeTeam})',
+                              _simulationResult.homeWinProbability,
+                              Colors.green),
                           const SizedBox(height: 8),
-                          _buildProbabilityRow('Döntetlen', _simulationResult.drawProbability, Colors.orange),
+                          _buildProbabilityRow('Döntetlen',
+                              _simulationResult.drawProbability, Colors.orange),
                           const SizedBox(height: 8),
-                          _buildProbabilityRow('Vendég győzelem (${widget.awayTeam})', _simulationResult.awayWinProbability, Colors.blue),
+                          _buildProbabilityRow(
+                              'Vendég győzelem (${widget.awayTeam})',
+                              _simulationResult.awayWinProbability,
+                              Colors.blue),
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              _buildStatBox('Legvalószínűbb', _simulationResult.mostLikelyScore),
-                              _buildStatBox('Hazai Gólátlag', _simulationResult.averageHomeGoals.toStringAsFixed(2)),
-                              _buildStatBox('Vendég Gólátlag', _simulationResult.averageAwayGoals.toStringAsFixed(2)),
+                              _buildStatBox('Legvalószínűbb',
+                                  _simulationResult.mostLikelyScore),
+                              _buildStatBox(
+                                  'Hazai Gólátlag',
+                                  _simulationResult.averageHomeGoals
+                                      .toStringAsFixed(2)),
+                              _buildStatBox(
+                                  'Vendég Gólátlag',
+                                  _simulationResult.averageAwayGoals
+                                      .toStringAsFixed(2)),
                             ],
                           ),
                         ],
@@ -170,9 +212,65 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
+
+                  // Extra adatok (forma, tabella, H2H)
+                  if (_simulationResult.homeForm != null ||
+                      _simulationResult.homePosition != null ||
+                      _simulationResult.h2hMatchesUsed > 0)
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      color: Colors.white,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'StatPal valós adatok',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87),
+                            ),
+                            const Divider(height: 20),
+                            if (_simulationResult.homePosition != null ||
+                                _simulationResult.awayPosition != null)
+                              _infoRow(
+                                  'Tabella',
+                                  '${_simulationResult.homePosition ?? "?"}. – ${_simulationResult.awayPosition ?? "?"}. hely'),
+                            if (_simulationResult.homeForm != null ||
+                                _simulationResult.awayForm != null)
+                              _infoRow(
+                                  'Forma (utolsó 5)',
+                                  '${_simulationResult.homeForm ?? "–"}  |  ${_simulationResult.awayForm ?? "–"}'),
+                            if (_simulationResult.homeGoalsScoredAvg != null)
+                              _infoRow(
+                                  'Hazai gólátlag',
+                                  '${_simulationResult.homeGoalsScoredAvg!.toStringAsFixed(2)} rúgott / ${_simulationResult.homeGoalsConcededAvg?.toStringAsFixed(2) ?? "?"} kapott'),
+                            if (_simulationResult.awayGoalsScoredAvg != null)
+                              _infoRow(
+                                  'Vendég gólátlag',
+                                  '${_simulationResult.awayGoalsScoredAvg!.toStringAsFixed(2)} rúgott / ${_simulationResult.awayGoalsConcededAvg?.toStringAsFixed(2) ?? "?"} kapott'),
+                            if (_simulationResult.h2hMatchesUsed > 0) ...[
+                              _infoRow('H2H meccsek',
+                                  '${_simulationResult.h2hMatchesUsed} db'),
+                              if (_simulationResult.recentScores.isNotEmpty)
+                                _infoRow('Utolsó eredmények',
+                                    _simulationResult.recentScores.join('  •  ')),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+
+                  // AI szöveges értékelés
                   Card(
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     color: Colors.white,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -181,18 +279,25 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                         children: [
                           const Row(
                             children: [
-                              Icon(Icons.psychology, size: 18, color: Colors.blueAccent),
+                              Icon(Icons.psychology,
+                                  size: 18, color: Colors.blueAccent),
                               SizedBox(width: 6),
                               Text(
                                 'AI Szakértői Értékelés',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87),
                               ),
                             ],
                           ),
                           const Divider(height: 20),
                           Text(
                             _aiAnalysisText,
-                            style: const TextStyle(fontSize: 12.5, color: Colors.black87, height: 1.4),
+                            style: const TextStyle(
+                                fontSize: 12.5,
+                                color: Colors.black87,
+                                height: 1.4),
                           ),
                         ],
                       ),
@@ -211,8 +316,14 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 11.5, color: Colors.black54, fontWeight: FontWeight.w500)),
-            Text('${percentage.toStringAsFixed(1)}%', style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.bold)),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w500)),
+            Text('${percentage.toStringAsFixed(1)}%',
+                style: TextStyle(
+                    fontSize: 11.5, color: color, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 4),
@@ -234,8 +345,42 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
       children: [
         Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey)),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87)),
       ],
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w500),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
