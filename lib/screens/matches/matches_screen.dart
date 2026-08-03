@@ -228,7 +228,16 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
                 for (var leagueGroup in leaguesList) {
                   final leagueName = leagueGroup['name']?.toString() ?? 'Ismeretlen Bajnokság';
-                  final matches = leagueGroup['match'] as List<dynamic>? ?? [];
+
+                  // === JAVÍTÁS: match lehet lista VAGY egyetlen objektum ===
+                  dynamic rawMatches = leagueGroup['match'];
+                  List<dynamic> matches = [];
+                  if (rawMatches is List) {
+                    matches = rawMatches;
+                  } else if (rawMatches is Map) {
+                    matches = [rawMatches]; // egy meccs → listába tesszük
+                  }
+                  // ========================================================
 
                   List<dynamic> validMatches = matches.where((match) {
                     if (match is! Map) return false;
