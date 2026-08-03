@@ -5,12 +5,16 @@ class AiAnalysisScreen extends StatefulWidget {
   final String homeTeam;
   final String awayTeam;
   final String leagueName;
+  final String? team1Id;
+  final String? team2Id;
 
   const AiAnalysisScreen({
     super.key,
     required this.homeTeam,
     required this.awayTeam,
     required this.leagueName,
+    this.team1Id,
+    this.team2Id,
   });
 
   @override
@@ -29,13 +33,14 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
   }
 
   Future<void> _runAnalysis() async {
-    // Lefuttatjuk az 50 000-es Monte Carlo szimulációt a Statpal élő adatok alapján
+    // Lefuttatjuk a szimulációt a valós Statpal ID-k figyelembevételével
     final result = await AiSimulationService.runMonteCarloSimulation(
       homeTeam: widget.homeTeam,
       awayTeam: widget.awayTeam,
+      team1Id: widget.team1Id,
+      team2Id: widget.team2Id,
     );
 
-    // Lekérjük az AI elemzést a kapott eredménnyel
     final analysis = await AiSimulationService.getAiMatchAnalysis(
       homeTeam: widget.homeTeam,
       awayTeam: widget.awayTeam,
@@ -82,7 +87,6 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Meccsfejléc Kártya
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -124,8 +128,6 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  // Monte Carlo Esélyek Kártya
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -168,8 +170,6 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-
-                  // AI Szakértő Elemzés Kártya
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
