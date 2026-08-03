@@ -5,16 +5,12 @@ class AiAnalysisScreen extends StatefulWidget {
   final String homeTeam;
   final String awayTeam;
   final String leagueName;
-  final int? team1Id; // Opcionális Statpal ID
-  final int? team2Id; // Opcionális Statpal ID
 
   const AiAnalysisScreen({
     super.key,
     required this.homeTeam,
     required this.awayTeam,
     required this.leagueName,
-    this.team1Id,
-    this.team2Id,
   });
 
   @override
@@ -33,12 +29,10 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
   }
 
   Future<void> _runAnalysis() async {
-    // Lefuttatjuk az 50 000-es Monte Carlo szimulációt a Statpal API-n keresztül
+    // Lefuttatjuk az 50 000-es Monte Carlo szimulációt a Statpal élő adatok alapján
     final result = await AiSimulationService.runMonteCarloSimulation(
       homeTeam: widget.homeTeam,
       awayTeam: widget.awayTeam,
-      team1Id: widget.team1Id,
-      team2Id: widget.team2Id,
     );
 
     // Lekérjük az AI elemzést a kapott eredménnyel
@@ -76,7 +70,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                   const CircularProgressIndicator(color: Colors.blueAccent),
                   const SizedBox(height: 16),
                   Text(
-                    'Statpal adatok betöltése és\n50 000 szimuláció futtatása...\n${widget.homeTeam} vs ${widget.awayTeam}',
+                    'Statpal adatok lekérése és\n50 000 szimuláció futtatása...\n${widget.homeTeam} vs ${widget.awayTeam}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
                   ),
