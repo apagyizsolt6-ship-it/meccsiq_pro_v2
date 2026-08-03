@@ -27,38 +27,49 @@ class MatchSimulationResult {
 
 class AiSimulationService {
   static const String _geminiApiKey = 'ITT_LEGYEN_A_GEMINI_API_KULCSOD';
-  
-  // Memória gyorsítótár az AI elemzésekhez
   static final Map<String, String> _analysisCache = {};
 
-  // Monte Carlo motor (szinkron, így garantáltan lefordul a képernyőkkel)
-  static MatchSimulationResult runMonteCarloSimulation({
+  static Future<MatchSimulationResult> runMonteCarloSimulation({
     required String homeTeam,
     required String awayTeam,
     int simulations = 50000,
-  }) {
-    // Statpal élő állapot ellenőrzés szinkron módon (SharedPreferences-ből)
-    bool statpalActive = false;
-    double homeLambda = 1.6;
-    double awayLambda = 1.2;
+  }) async {
+    double homeLambda = 1.4;
+    double awayLambda = 1.1;
+    bool statpalLive = false;
 
     try {
-      // Megnézzük, hogy van-e beállított Statpal kulcs a telefonodon
-      // (Ha van mentett kulcs, engedélyezzük a zöld live jelölést)
-      // A háttérben a StatpalService már készen áll a hívásokra.
-      statpalActive = true; 
+      final statpalService = StatpalService();
+      final liveData = await statpalService.getLiveMatches();
+
+      if (liveData != null && liveData['matches'] != null) {
+        final matches = liveData['matches'] as List<dynamic>;
+        
+        for (var match in matches) {
+          final hName = match['home_team']?['name']?.toString().toLowerCase() ?? '';
+          final aName = match['away_team']?['name']?.toString().toLowerCase() ?? '';
+
+          if (hName.contains(homeTeam.toLowerCase()) || aName.contains(awayTeam.toLowerCase())) {
+            final hGoalsAvg = double.tryParse(match['home_goals_avg']?.toString() ?? '') ?? 0.0;
+            final aGoalsAvg = double.tryParse(match['away_goals_avg']?.toString() ?? '') ?? 0.0;
+
+            if (hGoalsAvg > 0 && aGoalsAvg > 0) {
+              homeLambda = hGoalsAvg;
+              awayLambda = aGoalsAvg;
+              statpalLive = true;
+            }
+            break;
+          }
+        }
+      }
     } catch (_) {
-      statpalActive = false;
+      statpalLive = false;
     }
 
-    int combinedHash = homeTeam.codeUnits.fold(0, (prev, element) => prev + element) +
-        awayTeam.codeUnits.fold(0, (prev, element) => prev + element);
-    
-    final random = Random(combinedHash);
-
-    if (!statpalActive) {
-      homeLambda = 1.0 + (random.nextDouble() * 1.3);
-      awayLambda = 0.8 + (random.nextDouble() * 1.2);
+    final random = Random(homeTeam.hashCode + awayTeam.hashCode);
+    if (!statpalLive) {
+      homeLambda = 1.1 + (random.nextDouble() * 0.8);
+      awayLambda = 0.9 + (random.nextDouble() * 0.8);
     }
 
     int homeWins = 0;
@@ -98,18 +109,6 @@ class AiSimulationService {
       }
     });
 
-    List<String> parts = mostLikelyScore.split(':');
-    int hGoals = int.parse(parts[0]);
-    int aGoals = int.parse(parts[1]);
-
-    if (homeWins > awayWins && homeWins > draws && hGoals <= aGoals) {
-      mostLikelyScore = '${aGoals + 1}:$aGoals';
-    } else if (awayWins > homeWins && awayWins > draws && hGoals >= aGoals) {
-      mostLikelyScore = '$hGoals:${hGoals + 1}';
-    } else if (draws > homeWins && draws > awayWins && hGoals != aGoals) {
-      mostLikelyScore = '1:1';
-    }
-
     return MatchSimulationResult(
       homeWinProbability: (homeWins / simulations) * 100,
       drawProbability: (draws / simulations) * 100,
@@ -118,7 +117,7 @@ class AiSimulationService {
       averageHomeGoals: totalHomeGoals / simulations,
       averageAwayGoals: totalAwayGoals / simulations,
       totalSimulations: simulations,
-      isStatpalLive: statpalActive,
+      isStatpalLive: statpalLive,
     );
   }
 
@@ -133,7 +132,6 @@ class AiSimulationService {
     return (k - 1).toInt();
   }
 
-  // Gemini AI Elemzés Cache-eléssel, hibatűrő fallbackkel és Vizuális Statpal Címkével
   static Future<String> getAiMatchAnalysis({
     required String homeTeam,
     required String awayTeam,
@@ -147,13 +145,12 @@ class AiSimulationService {
 
     final prefs = await SharedPreferences.getInstance();
     final savedKey = prefs.getString('gemini_key');
-    
     final dynamicApiKey = (savedKey != null && savedKey.trim().isNotEmpty) ? savedKey.trim() : _geminiApiKey;
 
-    // Itt jelenik meg a zöld vagy kék státuszcímke a telefonodon
+    // Itt látszódik a vizuális státusz
     final String dataSourceBadge = simulation.isStatpalLive 
-        ? "🟢 **[Statpal Live adat]**\n" 
-        : "🔵 **[Helyi Monte Carlo adatok]**\n";
+        ? "🟢 **[Statpal API élő adatszolgáltatás aktív]**\n" 
+        : "🔵 **[Statpal API nem érhető el - Helyi kalkuláció]**\n";
 
     if (dynamicApiKey.isEmpty || dynamicApiKey == 'ITT_LEGYEN_A_GEMINI_API_KULCSOD') {
       return "$dataSourceBadge Kérlek, add meg a Google Gemini API kulcsodat a Profil menüpontban az AI elemzésekhez!";
@@ -166,7 +163,7 @@ class AiSimulationService {
       );
 
       final prompt = '''
-Te egy profi futball-elemző és statisztikus vagy. Kérlek, írj egy tömör, de izgalmas és szakértői elemzést (max 3-4 mondatban, magyar nyelven) a következő mérkőzésről a 50 000 futtatásos Monte Carlo szimuláció adatai alapján:
+Te egy profi futball-elemző és statisztikus vagy. Kérlek, írj egy tömör, de izgalmas és szakértői elemzést (max 3-4 mondatban, magyar nyelven) a következő mérkőzésről az 50 000 futtatásos Monte Carlo szimuláció adatai alapján:
 - Hazai csapat: $homeTeam
 - Vendég csapat: $awayTeam
 - Hazai győzelem esélye: ${simulation.homeWinProbability.toStringAsFixed(1)}%
@@ -175,7 +172,7 @@ Te egy profi futball-elemző és statisztikus vagy. Kérlek, írj egy tömör, d
 - Várható gólok: $homeTeam (${simulation.averageHomeGoals.toStringAsFixed(2)}) - $awayTeam (${simulation.averageAwayGoals.toStringAsFixed(2)})
 - Legvalószínűbb pontos végeredmény: ${simulation.mostLikelyScore}
 
-Írd meg, hogy ki az esélyes, mire érdemes figyelni, és miért ez a legvalószínűbb kimenetel!
+Írd meg a statisztikai adatok alapján, hogy ki az esélyes és miért!
 ''';
 
       final content = [Content.text(prompt)];
@@ -198,6 +195,6 @@ Te egy profi futball-elemző és statisztikus vagy. Kérlek, írj egy tömör, d
     String favorite = simulation.homeWinProbability > simulation.awayWinProbability ? homeTeam : awayTeam;
     double favProb = simulation.homeWinProbability > simulation.awayWinProbability ? simulation.homeWinProbability : simulation.awayWinProbability;
     
-    return "A 50 000 futtatásos Monte Carlo szimuláció alapján a meccs esélyese a(z) $favorite (${favProb.toStringAsFixed(1)}%). A legvalószínűbb végeredmény a(z) ${simulation.mostLikelyScore}, a várható gólok száma pedig $homeTeam (${simulation.averageHomeGoals.toStringAsFixed(2)}) – $awayTeam (${simulation.averageAwayGoals.toStringAsFixed(2)}) körül alakul.";
+    return "A 50 000 futtatásos Monte Carlo szimuláció szerint a meccs esélyese a(z) $favorite (${favProb.toStringAsFixed(1)}%). A legvalószínűbb végeredmény a(z) ${simulation.mostLikelyScore}, a várható gólok: $homeTeam (${simulation.averageHomeGoals.toStringAsFixed(2)}) – $awayTeam (${simulation.averageAwayGoals.toStringAsFixed(2)}).";
   }
 }
