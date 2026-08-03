@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../services/statpal_service.dart';
 import '../ai/ai_analysis_screen.dart';
 
@@ -17,7 +16,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   
   DateTime _selectedDate = DateTime.now();
   String _searchQuery = '';
-  bool _showOnlyLive = false; // ÚJ: Csak az élő meccsek szűrője
+  bool _showOnlyLive = false;
   final Set<String> _collapsedLeagues = {};
   bool _allCollapsed = true;
   
@@ -37,12 +36,17 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
   void _loadMatches() {
     setState(() {
-      // Ha a mai nap van kiválasztva, az élő/mai meccseket kérjük le, egyébként a napi végpontot offset alapján
-      final difference = _selectedDate.difference(DateTime.now()).inDays;
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final selected = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+      final difference = selected.difference(today).inDays;
+
       if (difference == 0) {
         _matchesFuture = _statpalService.getLiveMatches(forceRefresh: true);
-      } else {
+      } else if (difference >= -7 && difference <= 7) {
         _matchesFuture = _statpalService.getDailyMatches(difference);
+      } else {
+        _matchesFuture = _statpalService.getDailyMatches(difference > 0 ? 7 : -7);
       }
     });
   }
@@ -95,7 +99,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          // Élő meccsek szűrő ikon
           IconButton(
             icon: Icon(
               _showOnlyLive ? Icons.live_tv : Icons.tv_off,
@@ -193,13 +196,32 @@ class _MatchesScreenState extends State<MatchesScreen> {
                 }
 
                 final data = snapshot.data!;
-                // A Statpal válasz szerkezete alapján kinyerjük a ligákat
-                final rootKey = data.keys.first;
-                final rootData = data[rootKey] is Map ? data[rootKey] : null;
-                final leaguesList = rootData?['league'] as List<dynamic>? ?? [];
+                
+                List<dynamic> leaguesList = [];
+                try {
+                  for (var key in data.keys) {
+                    if (data[key] is Map && data[key]['league'] is List) {
+                      leaguesList = data[key]['league'];
+                      break;
+                    }
+                  }
+                } catch (_) {}
+
+                if (leaguesList.isEmpty && data['league'] is List) {
+                  leaguesList = data['league'];
+                }
 
                 if (leaguesList.isEmpty) {
-                  return const Center(child: Text('Nincsenek meccsek ezen a napon.', style: TextStyle(fontSize: 13)));
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Text(
+                        'Nincsenek elérhető mérkőzések ezen a napon, vagy a Statpal API nem adott vissza adatot.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ),
+                  );
                 }
 
                 List<Map<String, dynamic>> processedLeagues = [];
@@ -212,7 +234,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     if (match is! Map) return false;
                     final status = match['status']?.toString().toUpperCase() ?? '';
                     
-                    // Ha be van kapcsolva az élő szűrő, csak azokat hagyjuk, amik épp zajlanak
                     if (_showOnlyLive) {
                       if (!(status.contains('LIVE') || status.contains('1H') || status.contains('2H') || status == 'HT')) {
                         return false;
@@ -300,7 +321,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               final status = match['status']?.toString() ?? 'Kezdés';
                               final timeStr = match['time']?.toString() ?? '';
 
-                              // Valódi Statpal csapat ID-k kinyerése a H2H-hoz és elemzéshez
                               final homeTeamId = match['home']?['id']?.toString();
                               final awayTeamId = match['away']?['id']?.toString();
 
