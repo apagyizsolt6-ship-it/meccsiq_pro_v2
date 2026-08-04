@@ -97,7 +97,7 @@ class AppTranslator {
     return map[c] ?? country;
   }
 
-  // Bajnokságok – mindig ország/szervezet előtaggal
+  // Bajnokságok
   static String translateLeague(String leagueName) {
     String l = leagueName.trim();
 
@@ -113,7 +113,6 @@ class AppTranslator {
     final nameLower = namePart.toLowerCase();
     final fullLower = l.toLowerCase();
 
-    // --- Nemzetközi kupák ---
     if (fullLower.contains('champions league')) {
       return 'UEFA – Bajnokok Ligája';
     }
@@ -140,7 +139,6 @@ class AppTranslator {
       return 'Világ – Klub felkészülési mérkőzés';
     }
 
-    // --- Angol Premier CSAK ha angol ---
     if (nameLower == 'premier league' ||
         nameLower == 'english premier league') {
       if (countryPart.isEmpty ||
@@ -158,21 +156,17 @@ class AppTranslator {
     if (nameLower.contains('efl cup')) return 'Anglia – EFL Kupa';
     if (nameLower == 'fa cup') return 'Anglia – FA Kupa';
 
-    // --- Németország ---
     if (nameLower == 'bundesliga') return 'Németország – Bundesliga';
     if (nameLower.contains('bundesliga') && nameLower.contains('2')) {
       return 'Németország – 2. Bundesliga';
     }
 
-    // --- Franciaország ---
     if (nameLower == 'ligue 1') return 'Franciaország – Ligue 1';
     if (nameLower == 'ligue 2') return 'Franciaország – Ligue 2';
 
-    // --- Olaszország ---
     if (nameLower == 'serie a') return 'Olaszország – Serie A';
     if (nameLower == 'serie b') return 'Olaszország – Serie B';
 
-    // --- Spanyolország ---
     if (nameLower == 'la liga' || nameLower == 'primera') {
       if (countryPart.isEmpty ||
           countryLower == 'spain' ||
@@ -190,7 +184,6 @@ class AppTranslator {
       return '${translateCountry(countryPart)} – Segunda';
     }
 
-    // --- Magyarország ---
     if (nameLower == 'nb i' || nameLower == 'nb i.') {
       return 'Magyarország – NB I';
     }
@@ -201,7 +194,6 @@ class AppTranslator {
       return 'Magyarország – NB III';
     }
 
-    // --- Egyéb ismert ---
     if (nameLower == 'eredivisie') return 'Hollandia – Eredivisie';
     if (nameLower == 'portuguese liga' || nameLower == 'primeira liga') {
       return 'Portugália – Liga Portugal';
@@ -217,7 +209,6 @@ class AppTranslator {
       return 'Skócia – Premiership';
     }
 
-    // Általános
     String result = namePart;
     result = result.replaceAll('Premier Division', 'Premier Liga');
     result = result.replaceAll('First Division', '1. osztály');
@@ -233,7 +224,6 @@ class AppTranslator {
     return result;
   }
 
-  // Csapatnevek
   static String translateTeam(String teamName) {
     final t = teamName.trim();
     const map = {
@@ -293,13 +283,31 @@ class AppTranslator {
     return map[t] ?? t;
   }
 
-  /// Kezdési idő megjelenítése
+  /// UTC idő → helyi idő (pl. 19:00 UTC → 21:00 CEST)
+  static String toLocalTime(String? timeUtc) {
+    if (timeUtc == null || timeUtc.trim().isEmpty) return '–';
+    final cleaned = timeUtc.trim();
+    final parts = cleaned.split(':');
+    if (parts.length < 2) return cleaned;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return cleaned;
+
+    final now = DateTime.now();
+    final utc = DateTime.utc(now.year, now.month, now.day, h, m);
+    final local = utc.toLocal();
+    final hh = local.hour.toString().padLeft(2, '0');
+    final mm = local.minute.toString().padLeft(2, '0');
+    return '$hh:$mm';
+  }
+
+  /// Kezdési idő megjelenítése (helyi időzónában)
   static String formatMatchTime({
     required String? date,
     required String? time,
     required DateTime selectedDate,
   }) {
-    final t = (time ?? '').trim();
+    final tLocal = toLocalTime(time);
     final d = (date ?? '').trim();
 
     DateTime? matchDate;
@@ -312,7 +320,6 @@ class AppTranslator {
           final year = int.parse(parts[2]);
           matchDate = DateTime(year, month, day);
         } else if (d.contains('-')) {
-          // 2026-08-21
           matchDate = DateTime.tryParse(d);
         }
       } catch (_) {}
@@ -326,14 +333,14 @@ class AppTranslator {
           matchDate.month == sel.month &&
           matchDate.day == sel.day;
       if (sameDay) {
-        return t.isNotEmpty ? t : '–';
+        return tLocal;
       }
       final dd = matchDate.day.toString().padLeft(2, '0');
       final mm = matchDate.month.toString().padLeft(2, '0');
-      if (t.isNotEmpty) return '$dd.$mm. $t';
+      if (tLocal != '–') return '$dd.$mm. $tLocal';
       return '$dd.$mm.';
     }
 
-    return t.isNotEmpty ? t : '–';
+    return tLocal;
   }
 }
