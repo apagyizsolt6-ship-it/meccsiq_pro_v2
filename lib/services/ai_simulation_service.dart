@@ -20,12 +20,27 @@ class MatchSimulationResult {
   final double? awayGoalsScoredAvg;
   final double? awayGoalsConcededAvg;
 
-  // Új mezők
+  // Gólpiacok
+  final double over15Probability;
+  final double under15Probability;
   final double over25Probability;
   final double under25Probability;
+  final double over35Probability;
+  final double under35Probability;
+
+  // BTTS
   final double bttsYesProbability;
   final double bttsNoProbability;
-  final String dataQuality; // 'strong' | 'medium' | 'weak'
+
+  // Double Chance
+  final double doubleChance1X;
+  final double doubleChance12;
+  final double doubleChanceX2;
+
+  // Top 5 pontos eredmény
+  final List<Map<String, dynamic>> topScores;
+
+  final String dataQuality;
   final bool usedWeightedH2h;
 
   MatchSimulationResult({
@@ -46,10 +61,18 @@ class MatchSimulationResult {
     this.homeGoalsConcededAvg,
     this.awayGoalsScoredAvg,
     this.awayGoalsConcededAvg,
+    this.over15Probability = 0,
+    this.under15Probability = 0,
     this.over25Probability = 0,
     this.under25Probability = 0,
+    this.over35Probability = 0,
+    this.under35Probability = 0,
     this.bttsYesProbability = 0,
     this.bttsNoProbability = 0,
+    this.doubleChance1X = 0,
+    this.doubleChance12 = 0,
+    this.doubleChanceX2 = 0,
+    this.topScores = const [],
     this.dataQuality = 'weak',
     this.usedWeightedH2h = false,
   });
@@ -59,25 +82,24 @@ class AiSimulationService {
   static final StatpalService _statpalService = StatpalService();
   static final Random _random = Random();
 
-  /// Liga-specifikus hazai előny (gól)
   static double _homeAdvantageForLeague(String? leagueId) {
     if (leagueId == null) return 0.15;
     switch (leagueId) {
-      case '3037': // Premier League
+      case '3037':
         return 0.22;
-      case '3062': // Bundesliga
+      case '3062':
         return 0.20;
-      case '3102': // Serie A
+      case '3102':
         return 0.18;
-      case '3232': // La Liga
+      case '3232':
         return 0.18;
-      case '3054': // Ligue 1
+      case '3054':
         return 0.17;
-      case '3081': // NB I
+      case '3081':
         return 0.16;
-      case '2838': // Champions League
-      case '2840': // Europa League
-      case '20686': // Conference
+      case '2838':
+      case '2840':
+      case '20686':
         return 0.12;
       default:
         return 0.15;
@@ -102,13 +124,13 @@ class AiSimulationService {
     int count = 0;
     for (final c in form.toUpperCase().split('')) {
       if (c == 'W') {
-        score += 1.15;
+        score += 1.18;
         count++;
       } else if (c == 'D') {
         score += 1.0;
         count++;
       } else if (c == 'L') {
-        score += 0.85;
+        score += 0.82;
         count++;
       }
     }
@@ -137,7 +159,7 @@ class AiSimulationService {
     double? awayScoredAvg;
     double? awayConcededAvg;
 
-    // ========== 1. TABELLA ==========
+    // 1. TABELLA
     if (leagueId != null && leagueId.isNotEmpty) {
       try {
         final standingsData = await _statpalService.getStandings(leagueId);
@@ -200,7 +222,7 @@ class AiSimulationService {
       } catch (_) {}
     }
 
-    // ========== 2. H2H (súlyozott) ==========
+    // 2. H2H (súlyozott)
     if (team1Id != null &&
         team2Id != null &&
         team1Id.isNotEmpty &&
@@ -225,7 +247,6 @@ class AiSimulationService {
             double weightSum = 0;
             int counted = 0;
 
-            // Újabb meccsek nagyobb súllyal (index 0 = legújabb)
             for (int i = 0; i < matches.length; i++) {
               final m = matches[i];
               if (m is! Map) continue;
@@ -237,30 +258,28 @@ class AiSimulationService {
               final t2Score =
                   double.tryParse(m['team2_score']?.toString() ?? '') ?? 0;
 
-              // Súly: legújabb 5 → 2.0, 6–15 → 1.3, többi → 1.0
               double w = 1.0;
               if (i < 5) {
-                w = 2.0;
-              } else if (i < 15) {
-                w = 1.3;
+                w = 2.2;
+              } else if (i < 12) {
+                w = 1.4;
               }
-
-              final t1Goals = t1Score.toInt().toString();
-              final t2Goals = t2Score.toInt().toString();
 
               if (t1Id == team1Id) {
                 homeGoalsWeighted += t1Score * w;
                 awayGoalsWeighted += t2Score * w;
                 weightSum += w;
                 if (counted < 6) {
-                  recentScores.add(t1Goals + '-' + t2Goals);
+                  recentScores.add(
+                      '\( {t1Score.toInt()}- \){t2Score.toInt()}');
                 }
               } else if (t2Id == team1Id) {
                 homeGoalsWeighted += t2Score * w;
                 awayGoalsWeighted += t1Score * w;
                 weightSum += w;
                 if (counted < 6) {
-                  recentScores.add(t2Goals + '-' + t1Goals);
+                  recentScores.add(
+                      '\( {t2Score.toInt()}- \){t1Score.toInt()}');
                 }
               } else {
                 continue;
@@ -279,14 +298,13 @@ class AiSimulationService {
       } catch (_) {}
     }
 
-    // ========== 3. KOMBINÁLÁS ==========
-    // Ha kevés H2H (< 5), a tabella nagyobb súlyt kap
-    final bool weakH2h = h2hCount < 5;
-    final double h2hWeight = weakH2h ? 0.25 : 0.55;
+    // 3. KOMBINÁLÁS
+    final bool weakH2h = h2hCount < 6;
+    final double h2hWeight = weakH2h ? 0.22 : 0.58;
     final double tableWeight = 1.0 - h2hWeight;
 
     if (homeScoredAvg != null && awayConcededAvg != null) {
-      final combinedHome = (homeScoredAvg + awayConcededAvg) / 2;
+      final combinedHome = (homeScoredAvg * 0.55) + (awayConcededAvg * 0.45);
       if (h2hCount > 0) {
         homeAvg = (homeAvg * h2hWeight) + (combinedHome * tableWeight);
       } else {
@@ -295,7 +313,7 @@ class AiSimulationService {
     }
 
     if (awayScoredAvg != null && homeConcededAvg != null) {
-      final combinedAway = (awayScoredAvg + homeConcededAvg) / 2;
+      final combinedAway = (awayScoredAvg * 0.55) + (homeConcededAvg * 0.45);
       if (h2hCount > 0) {
         awayAvg = (awayAvg * h2hWeight) + (combinedAway * tableWeight);
       } else {
@@ -303,17 +321,13 @@ class AiSimulationService {
       }
     }
 
-    // Forma
     homeAvg *= _formMultiplier(homeForm);
     awayAvg *= _formMultiplier(awayForm);
-
-    // Liga-specifikus hazai előny
     homeAvg += _homeAdvantageForLeague(leagueId);
 
-    homeAvg = homeAvg.clamp(0.35, 3.4);
-    awayAvg = awayAvg.clamp(0.25, 3.0);
+    homeAvg = homeAvg.clamp(0.30, 3.5);
+    awayAvg = awayAvg.clamp(0.22, 3.1);
 
-    // Adatminőség
     String dataQuality;
     if (h2hCount >= 10 &&
         homeScoredAvg != null &&
@@ -326,18 +340,21 @@ class AiSimulationService {
       dataQuality = 'weak';
     }
 
-    // ========== 4. POISSON MONTE CARLO ==========
+    // 4. MONTE CARLO
     const int totalSims = 50000;
     int homeWins = 0;
     int draws = 0;
     int awayWins = 0;
+    int over15 = 0;
     int over25 = 0;
+    int over35 = 0;
     int bttsYes = 0;
     final Map<String, int> scoreCounts = {};
 
     for (int i = 0; i < totalSims; i++) {
       final hg = _poisson(homeAvg);
       final ag = _poisson(awayAvg);
+      final totalGoals = hg + ag;
 
       if (hg > ag) {
         homeWins++;
@@ -347,27 +364,37 @@ class AiSimulationService {
         awayWins++;
       }
 
-      if (hg + ag >= 3) over25++;
+      if (totalGoals >= 2) over15++;
+      if (totalGoals >= 3) over25++;
+      if (totalGoals >= 4) over35++;
       if (hg > 0 && ag > 0) bttsYes++;
 
-      final key = hg.toString() + ':' + ag.toString();
+      final key = '$hg:$ag';
       scoreCounts[key] = (scoreCounts[key] ?? 0) + 1;
     }
 
-    String mostLikely = '1:1';
-    int maxCount = -1;
-    scoreCounts.forEach((score, count) {
-      if (count > maxCount) {
-        maxCount = count;
-        mostLikely = score;
-      }
-    });
+    final sortedScores = scoreCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final topScores = sortedScores.take(5).map((e) {
+      return {
+        'score': e.key,
+        'probability': (e.value / totalSims) * 100,
+      };
+    }).toList();
+
+    final mostLikely =
+        topScores.isNotEmpty ? topScores.first['score'] as String : '1:1';
+
+    final homeWinPct = (homeWins / totalSims) * 100;
+    final drawPct = (draws / totalSims) * 100;
+    final awayWinPct = (awayWins / totalSims) * 100;
 
     return MatchSimulationResult(
       totalSimulations: totalSims,
-      homeWinProbability: (homeWins / totalSims) * 100,
-      drawProbability: (draws / totalSims) * 100,
-      awayWinProbability: (awayWins / totalSims) * 100,
+      homeWinProbability: homeWinPct,
+      drawProbability: drawPct,
+      awayWinProbability: awayWinPct,
       mostLikelyScore: mostLikely,
       averageHomeGoals: double.parse(homeAvg.toStringAsFixed(2)),
       averageAwayGoals: double.parse(awayAvg.toStringAsFixed(2)),
@@ -381,10 +408,18 @@ class AiSimulationService {
       homeGoalsConcededAvg: homeConcededAvg,
       awayGoalsScoredAvg: awayScoredAvg,
       awayGoalsConcededAvg: awayConcededAvg,
+      over15Probability: (over15 / totalSims) * 100,
+      under15Probability: ((totalSims - over15) / totalSims) * 100,
       over25Probability: (over25 / totalSims) * 100,
       under25Probability: ((totalSims - over25) / totalSims) * 100,
+      over35Probability: (over35 / totalSims) * 100,
+      under35Probability: ((totalSims - over35) / totalSims) * 100,
       bttsYesProbability: (bttsYes / totalSims) * 100,
       bttsNoProbability: ((totalSims - bttsYes) / totalSims) * 100,
+      doubleChance1X: homeWinPct + drawPct,
+      doubleChance12: homeWinPct + awayWinPct,
+      doubleChanceX2: drawPct + awayWinPct,
+      topScores: topScores,
       dataQuality: dataQuality,
       usedWeightedH2h: usedWeightedH2h,
     );
@@ -410,119 +445,56 @@ class AiSimulationService {
       strength = 'szoros, kiegyenlített meccs';
     }
 
-    final homePct = s.homeWinProbability.toStringAsFixed(1);
-    final drawPct = s.drawProbability.toStringAsFixed(1);
-    final awayPct = s.awayWinProbability.toStringAsFixed(1);
-    final homeXg = s.averageHomeGoals.toString();
-    final awayXg = s.averageAwayGoals.toString();
-    final overPct = s.over25Probability.toStringAsFixed(1);
-    final bttsPct = s.bttsYesProbability.toStringAsFixed(1);
-
-    String qualityText;
-    if (s.dataQuality == 'strong') {
-      qualityText = 'Erős adatminőség (sok H2H + tabella).';
-    } else if (s.dataQuality == 'medium') {
-      qualityText = 'Közepes adatminőség.';
-    } else {
-      qualityText =
-          'Gyenge adatminőség – kevés H2H, óvatosan kezeld az esélyeket.';
-    }
-
     final buffer = StringBuffer();
 
-    buffer.write('**[Valós StatPal adatmodell – Poisson Monte Carlo]**\n\n');
-    buffer.write('50 000 szimuláció alapján a mérkőzés ');
-    buffer.write(strength);
-    buffer.write(': **');
-    buffer.write(favorite);
-    buffer.write('**.\n\n');
+    buffer.writeln('**[Valós StatPal adatmodell – Poisson Monte Carlo]**\n');
+    buffer.writeln(
+        '50 000 szimuláció alapján a mérkőzés $strength: **$favorite**.\n');
 
-    buffer.write('• Hazai győzelem (');
-    buffer.write(homeTeam);
-    buffer.write('): **');
-    buffer.write(homePct);
-    buffer.write('%**\n');
+    buffer.writeln(
+        '• Hazai győzelem (\( homeTeam): ** \){s.homeWinProbability.toStringAsFixed(1)}%**');
+    buffer.writeln(
+        '• Döntetlen: **${s.drawProbability.toStringAsFixed(1)}%**');
+    buffer.writeln(
+        '• Vendég győzelem (\( awayTeam): ** \){s.awayWinProbability.toStringAsFixed(1)}%**\n');
 
-    buffer.write('• Döntetlen: **');
-    buffer.write(drawPct);
-    buffer.write('%**\n');
+    buffer.writeln(
+        'Várható gólátlag (xG): **${s.averageHomeGoals} – ${s.averageAwayGoals}**');
+    buffer.writeln('Legvalószínűbb eredmény: **${s.mostLikelyScore}**\n');
 
-    buffer.write('• Vendég győzelem (');
-    buffer.write(awayTeam);
-    buffer.write('): **');
-    buffer.write(awayPct);
-    buffer.write('%**\n\n');
-
-    buffer.write('Várható gólátlag (xG): **');
-    buffer.write(homeXg);
-    buffer.write(' – ');
-    buffer.write(awayXg);
-    buffer.write('**\n');
-
-    buffer.write('Legvalószínűbb eredmény: **');
-    buffer.write(s.mostLikelyScore);
-    buffer.write('**\n\n');
-
-    buffer.write('Over 2.5: **');
-    buffer.write(overPct);
-    buffer.write('%**  |  BTTS igen: **');
-    buffer.write(bttsPct);
-    buffer.write('%**\n\n');
+    buffer.writeln(
+        'Over 2.5: **\( {s.over25Probability.toStringAsFixed(1)}%**  |  BTTS igen: ** \){s.bttsYesProbability.toStringAsFixed(1)}%**\n');
 
     if (s.homePosition != null || s.awayPosition != null) {
-      buffer.write('Tabella helyzet: ');
-      buffer.write(s.homePosition?.toString() ?? '?');
-      buffer.write(' – ');
-      buffer.write(s.awayPosition?.toString() ?? '?');
-      buffer.write('\n');
+      buffer.writeln(
+          'Tabella helyzet: ${s.homePosition ?? "?"} – ${s.awayPosition ?? "?"}');
     }
 
     if (s.homeForm != null || s.awayForm != null) {
-      buffer.write('Forma (utolsó 5): ');
-      buffer.write(s.homeForm ?? '–');
-      buffer.write(' | ');
-      buffer.write(s.awayForm ?? '–');
-      buffer.write('\n');
-    }
-
-    if (s.homeGoalsScoredAvg != null) {
-      buffer.write('Hazai gólátlag (hazai meccseken): ');
-      buffer.write(s.homeGoalsScoredAvg!.toStringAsFixed(2));
-      buffer.write(' rúgott / ');
-      buffer.write(s.homeGoalsConcededAvg?.toStringAsFixed(2) ?? '?');
-      buffer.write(' kapott\n');
-    }
-
-    if (s.awayGoalsScoredAvg != null) {
-      buffer.write('Vendég gólátlag (idegenben): ');
-      buffer.write(s.awayGoalsScoredAvg!.toStringAsFixed(2));
-      buffer.write(' rúgott / ');
-      buffer.write(s.awayGoalsConcededAvg?.toStringAsFixed(2) ?? '?');
-      buffer.write(' kapott\n');
+      buffer.writeln(
+          'Forma (utolsó 5): ${s.homeForm ?? "–"} | ${s.awayForm ?? "–"}');
     }
 
     if (s.h2hMatchesUsed > 0) {
-      buffer.write('\nH2H alap: ');
-      buffer.write(s.h2hMatchesUsed.toString());
-      buffer.write(' egymás elleni meccs');
+      buffer.write('\nH2H alap: ${s.h2hMatchesUsed} egymás elleni meccs');
       if (s.usedWeightedH2h) {
-        buffer.write(' (súlyozott: újabb meccsek nagyobb súllyal)');
+        buffer.write(' (súlyozott)');
       }
-      buffer.write('\n');
+      buffer.writeln();
       if (s.recentScores.isNotEmpty) {
-        buffer.write('Utolsó eredmények: ');
-        buffer.write(s.recentScores.join('  •  '));
-        buffer.write('\n');
+        buffer.writeln('Utolsó eredmények: ${s.recentScores.join("  •  ")}');
       }
-    } else {
-      buffer.write(
-          '\nH2H adat nem volt elérhető, a tabella és a forma alapján számoltunk.\n');
     }
 
-    buffer.write('\n');
-    buffer.write(qualityText);
-    buffer.write(
-        '\n\nA modell súlyozott H2H + tabella + forma + liga-specifikus hazai előnyt kombinál, majd Poisson-eloszlással szimulál.');
+    buffer.writeln();
+    if (s.dataQuality == 'strong') {
+      buffer.writeln('Erős adatminőség (sok H2H + tabella).');
+    } else if (s.dataQuality == 'medium') {
+      buffer.writeln('Közepes adatminőség.');
+    } else {
+      buffer.writeln(
+          'Gyenge adatminőség – kevés H2H, óvatosan kezeld az esélyeket.');
+    }
 
     return buffer.toString();
   }
