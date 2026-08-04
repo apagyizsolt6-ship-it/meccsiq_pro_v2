@@ -25,6 +25,47 @@ class _MatchesScreenState extends State<MatchesScreen>
   Timer? _debounceTimer;
   Timer? _autoRefreshTimer;
 
+  // Kizárt bajnokságok kulcsszavai (női, utánpótlás, alacsonyabb osztályok)
+  static const List<String> _excludedKeywords = [
+    'női',
+    'women',
+    'woman',
+    'w ',
+    'feminine',
+    'u17',
+    'u18',
+    'u19',
+    'u20',
+    'u21',
+    'u23',
+    'utánpótlás',
+    'youth',
+    'junior',
+    'reserve',
+    'tartalék',
+    'regionalliga',
+    '3. liga',
+    '3. osztály',
+    '4. osztály',
+    'serie c',
+    'serie d',
+    'league one',
+    'league two',
+    'national league',
+    'nacional',
+    'segunda b',
+    'terceira',
+    '2. divisjon',
+    '3. divisjon',
+    'division 3',
+    'division 4',
+    'oberliga',
+    'landesliga',
+    'verbandsliga',
+    'a-liga női',
+    'premier liga női',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -212,6 +253,12 @@ class _MatchesScreenState extends State<MatchesScreen>
         }
       }
     } catch (_) {}
+
+    // Felesleges bajnokságok (női, utánpótlás, alacsonyabb osztályok) kiszűrése
+    combined.removeWhere((lg) {
+      final name = (lg['name']?.toString() ?? '').toLowerCase();
+      return _excludedKeywords.any((kw) => name.contains(kw));
+    });
 
     return combined;
   }
