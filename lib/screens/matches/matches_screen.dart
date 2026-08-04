@@ -11,7 +11,8 @@ class MatchesScreen extends StatefulWidget {
   State<MatchesScreen> createState() => _MatchesScreenState();
 }
 
-class _MatchesScreenState extends State<MatchesScreen> {
+class _MatchesScreenState extends State<MatchesScreen>
+    with WidgetsBindingObserver {
   final StatpalService _statpalService = StatpalService();
   late Future<List<Map<String, dynamic>>> _matchesFuture;
 
@@ -22,33 +23,70 @@ class _MatchesScreenState extends State<MatchesScreen> {
   bool _allCollapsed = true;
 
   Timer? _debounceTimer;
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadMatches();
+    _startAutoRefreshIfNeeded();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _debounceTimer?.cancel();
+    _autoRefreshTimer?.cancel();
     super.dispose();
   }
 
-  void _loadMatches() {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startAutoRefreshIfNeeded();
+      if (_isTodaySelected()) {
+        _loadMatches(forceLive: true);
+      }
+    } else if (state == AppLifecycleState.paused) {
+      _autoRefreshTimer?.cancel();
+    }
+  }
+
+  bool _isTodaySelected() {
+    final now = DateTime.now();
+    return _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+  }
+
+  void _startAutoRefreshIfNeeded() {
+    _autoRefreshTimer?.cancel();
+    // Csak ma: 40 másodpercenként frissít
+    if (_isTodaySelected()) {
+      _autoRefreshTimer = Timer.periodic(const Duration(seconds: 40), (_) {
+        if (mounted && _isTodaySelected()) {
+          _loadMatches(forceLive: true);
+        }
+      });
+    }
+  }
+
+  void _loadMatches({bool forceLive = false}) {
     setState(() {
-      _matchesFuture = _fetchAllMatches();
+      _matchesFuture = _fetchAllMatches(forceLive: forceLive);
     });
   }
 
-  Future<List<Map<String, dynamic>>> _fetchAllMatches() async {
+  Future<List<Map<String, dynamic>>> _fetchAllMatches(
+      {bool forceLive = false}) async {
     final List<Map<String, dynamic>> combined = [];
     final Set<String> seenLeagueIds = {};
 
     final selected =
         DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
 
-    // 1) Prioritásos ligák – csak a kiválasztott nap
+    // 1) Prioritásos ligák
     try {
       final priority = await _statpalService.getPriorityLeagueMatches(
         filterDate: selected,
@@ -68,8 +106,9 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
       Map<String, dynamic>? globalData;
       if (difference == 0) {
-        globalData =
-            await _statpalService.getLiveMatches(forceRefresh: true);
+        globalData = await _statpalService.getLiveMatches(
+          forceRefresh: forceLive || true,
+        );
       } else if (difference >= -7 && difference <= 7) {
         globalData = await _statpalService.getDailyMatches(difference);
       } else {
@@ -108,7 +147,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
 
           var leagueName = AppTranslator.translateLeague(rawFull);
 
-          // Biztonsági háló – rossz ID ne kapjon top nevet
           if (leagueName == 'Anglia – Premier League' &&
               leagueId != '3037') {
             leagueName = country.isNotEmpty
@@ -179,7 +217,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
   }
 
   Future<void> _handleRefresh() async {
-    _loadMatches();
+    _loadMatches(forceLive: true);
     await _matchesFuture;
   }
 
@@ -195,6 +233,7 @@ class _MatchesScreenState extends State<MatchesScreen> {
       setState(() {
         _selectedDate = picked;
         _loadMatches();
+        _startAutoRefreshIfNeeded();
       });
     }
   }
@@ -327,7 +366,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _matchesFuture,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 } else if (snapshot.hasError) {
                   return Center(
@@ -504,10 +544,27 @@ class _MatchesScreenState extends State<MatchesScreen> {
                               final isNotStarted = statusUpper == 'NS' ||
                                   statusUpper == 'NOT STARTED' ||
                                   statusUpper.isEmpty;
+                              final isLive = statusUpper.contains('LIVE') ||
+                                  statusUpper.contains('1H') ||
+                                  statusUpper.contains('2H') ||
+                                  statusUpper == 'HT' ||
+                                  statusUpper.contains('IN_PLAY');
 
                               String statusDisplay;
                               if (isFinished) {
                                 statusDisplay = 'Vége';
+                              } else if (isLive) {
+                                // Élő: státusz + perc ha van
+                                final minute = match['inj_minute']
+                                        ?.toString()
+                                        .trim() ??
+                                    match['minute']?.toString().trim() ??
+                                    '';
+                                final base =
+                                    AppTranslator.translateStatus(statusRaw);
+                                statusDisplay = minute.isNotEmpty
+                                    ? '$base $minute\''
+                                    : base;
                               } else if (isNotStarted) {
                                 statusDisplay =
                                     AppTranslator.formatMatchTime(
@@ -563,9 +620,11 @@ class _MatchesScreenState extends State<MatchesScreen> {
                                             fontSize: 10,
                                             color: isFinished
                                                 ? Colors.grey
-                                                : (isNotStarted
-                                                    ? Colors.blueGrey
-                                                    : Colors.green),
+                                                : (isLive
+                                                    ? Colors.red
+                                                    : (isNotStarted
+                                                        ? Colors.blueGrey
+                                                        : Colors.green)),
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
