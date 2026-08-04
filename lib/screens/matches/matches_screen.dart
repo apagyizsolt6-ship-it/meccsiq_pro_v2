@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/statpal_service.dart';
 import '../../utils/app_translator.dart';
 import '../ai/ai_analysis_screen.dart';
@@ -19,13 +20,16 @@ class _MatchesScreenState extends State<MatchesScreen>
   DateTime _selectedDate = DateTime.now();
   String _searchQuery = '';
   bool _showOnlyLive = false;
+  bool _showOnlyFavorites = false;
   final Set<String> _collapsedLeagues = {};
   bool _allCollapsed = true;
+
+  // Kedvencek (team ID-k)
+  final Set<String> _favoriteTeamIds = {};
 
   Timer? _debounceTimer;
   Timer? _autoRefreshTimer;
 
-  // Kizárt bajnokságok kulcsszavai (női, utánpótlás, alacsonyabb osztályok)
   static const List<String> _excludedKeywords = [
     'női',
     'women',
@@ -70,6 +74,7 @@ class _MatchesScreenState extends State<MatchesScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadFavorites();
     _loadMatches();
     _startAutoRefreshIfNeeded();
   }
@@ -80,6 +85,37 @@ class _MatchesScreenState extends State<MatchesScreen>
     _debounceTimer?.cancel();
     _autoRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList('favorite_team_ids') ?? [];
+    setState(() {
+      _favoriteTeamIds.clear();
+      _favoriteTeamIds.addAll(list);
+    });
+  }
+
+  Future<void> _toggleFavorite(String? teamId) async {
+    if (teamId == null || teamId.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      if (_favoriteTeamIds.contains(teamId)) {
+        _favoriteTeamIds.remove(teamId);
+      } else {
+        _favoriteTeamIds.add(teamId);
+      }
+    });
+    await prefs.setStringList(
+        'favorite_team_ids', _favoriteTeamIds.toList());
+  }
+
+  bool _isFavoriteMatch(Map match) {
+    final homeId = match['home']?['id']?.toString();
+    final awayId = match['away']?['id']?.toString();
+    return (homeId != null && _favoriteTeamIds.contains(homeId)) ||
+        (awayId != null && _favoriteTeamIds.contains(awayId));
   }
 
   @override
@@ -103,7 +139,6 @@ class _MatchesScreenState extends State<MatchesScreen>
 
   void _startAutoRefreshIfNeeded() {
     _autoRefreshTimer?.cancel();
-    // Csak ma: 40 másodpercenként frissít
     if (_isTodaySelected()) {
       _autoRefreshTimer = Timer.periodic(const Duration(seconds: 40), (_) {
         if (mounted && _isTodaySelected()) {
@@ -254,7 +289,7 @@ class _MatchesScreenState extends State<MatchesScreen>
       }
     } catch (_) {}
 
-    // Felesleges bajnokságok (női, utánpótlás, alacsonyabb osztályok) kiszűrése
+    // Felesleges bajnokságok kiszűrése
     combined.removeWhere((lg) {
       final name = (lg['name']?.toString() ?? '').toLowerCase();
       return _excludedKeywords.any((kw) => name.contains(kw));
@@ -324,6 +359,21 @@ class _MatchesScreenState extends State<MatchesScreen>
         elevation: 0,
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: Icon(
+              _showOnlyFavorites ? Icons.star : Icons.star_border,
+              size: 20,
+              color: _showOnlyFavorites ? Colors.amber : Colors.grey,
+            ),
+            tooltip: _showOnlyFavorites
+                ? 'Összes meccs'
+                : 'Csak kedvencek',
+            onPressed: () {
+              setState(() {
+                _showOnlyFavorites = !_showOnlyFavorites;
+              });
+            },
+          ),
           IconButton(
             icon: Icon(
               _showOnlyLive ? Icons.live_tv : Icons.tv_off,
@@ -469,6 +519,10 @@ class _MatchesScreenState extends State<MatchesScreen>
                       }
                     }
 
+                    if (_showOnlyFavorites && !_isFavoriteMatch(match)) {
+                      return false;
+                    }
+
                     final home = AppTranslator.translateTeam(
                             match['home']?['name']?.toString() ?? '')
                         .toLowerCase();
@@ -601,7 +655,6 @@ class _MatchesScreenState extends State<MatchesScreen>
                               if (isFinished) {
                                 statusDisplay = 'Vége';
                               } else if (isLive) {
-                                // Élő: státusz + perc ha van
                                 final minute = match['inj_minute']
                                         ?.toString()
                                         .trim() ??
@@ -630,6 +683,8 @@ class _MatchesScreenState extends State<MatchesScreen>
                               final awayTeamId =
                                   match['away']?['id']?.toString();
 
+                              final isFav = _isFavoriteMatch(match);
+
                               return InkWell(
                                 onTap: () {
                                   Navigator.push(
@@ -648,9 +703,11 @@ class _MatchesScreenState extends State<MatchesScreen>
                                   );
                                 },
                                 child: Container(
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    border: Border(
+                                  decoration: BoxDecoration(
+                                    color: isFav
+                                        ? const Color(0xFFFFF8E1)
+                                        : Colors.white,
+                                    border: const Border(
                                         bottom: BorderSide(
                                             color: Color(0xFFF1F5F9),
                                             width: 1)),
@@ -705,13 +762,44 @@ class _MatchesScreenState extends State<MatchesScreen>
                                           ],
                                         ),
                                       ),
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 8.0),
-                                        child: Icon(Icons.psychology,
-                                            size: 16,
-                                            color: Colors.blueAccent),
+                                      // Kedvenc csillag (hazai)
+                                      GestureDetector(
+                                        onTap: () =>
+                                            _toggleFavorite(homeTeamId),
+                                        child: Icon(
+                                          _favoriteTeamIds
+                                                  .contains(homeTeamId)
+                                              ? Icons.star
+                                              : Icons.star_border,
+                                          size: 18,
+                                          color: _favoriteTeamIds
+                                                  .contains(homeTeamId)
+                                              ? Colors.amber
+                                              : Colors.grey.shade400,
+                                        ),
                                       ),
+                                      const SizedBox(width: 4),
+                                      // Kedvenc csillag (vendég)
+                                      GestureDetector(
+                                        onTap: () =>
+                                            _toggleFavorite(awayTeamId),
+                                        child: Icon(
+                                          _favoriteTeamIds
+                                                  .contains(awayTeamId)
+                                              ? Icons.star
+                                              : Icons.star_border,
+                                          size: 18,
+                                          color: _favoriteTeamIds
+                                                  .contains(awayTeamId)
+                                              ? Colors.amber
+                                              : Colors.grey.shade400,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Icon(Icons.psychology,
+                                          size: 16,
+                                          color: Colors.blueAccent),
+                                      const SizedBox(width: 6),
                                       Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.end,
