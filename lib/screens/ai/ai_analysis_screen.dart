@@ -58,6 +58,18 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
     }
   }
 
+  Color _qualityColor(String q) {
+    if (q == 'strong') return Colors.green;
+    if (q == 'medium') return Colors.orange;
+    return Colors.redAccent;
+  }
+
+  String _qualityLabel(String q) {
+    if (q == 'strong') return 'Erős adat';
+    if (q == 'medium') return 'Közepes adat';
+    return 'Gyenge adat';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -144,13 +156,33 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                               ),
                             ],
                           ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _qualityColor(
+                                      _simulationResult.dataQuality)
+                                  .withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _qualityLabel(_simulationResult.dataQuality),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: _qualityColor(
+                                    _simulationResult.dataQuality),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
 
-                  // Monte Carlo esélyek
+                  // Monte Carlo 1X2
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -165,7 +197,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
-                                'Monte Carlo Esélyek',
+                                'Monte Carlo Esélyek (1X2)',
                                 style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
@@ -198,11 +230,11 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                               _buildStatBox('Legvalószínűbb',
                                   _simulationResult.mostLikelyScore),
                               _buildStatBox(
-                                  'Hazai Gólátlag',
+                                  'Hazai xG',
                                   _simulationResult.averageHomeGoals
                                       .toStringAsFixed(2)),
                               _buildStatBox(
-                                  'Vendég Gólátlag',
+                                  'Vendég xG',
                                   _simulationResult.averageAwayGoals
                                       .toStringAsFixed(2)),
                             ],
@@ -213,7 +245,51 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Extra adatok (forma, tabella, H2H)
+                  // Over/Under + BTTS
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    color: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Gólpiacok (szimulációból)',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87),
+                          ),
+                          const Divider(height: 20),
+                          _buildProbabilityRow(
+                              'Over 2.5 gól',
+                              _simulationResult.over25Probability,
+                              Colors.purple),
+                          const SizedBox(height: 8),
+                          _buildProbabilityRow(
+                              'Under 2.5 gól',
+                              _simulationResult.under25Probability,
+                              Colors.blueGrey),
+                          const SizedBox(height: 12),
+                          _buildProbabilityRow(
+                              'BTTS igen (mindkét csapat szerez)',
+                              _simulationResult.bttsYesProbability,
+                              Colors.teal),
+                          const SizedBox(height: 8),
+                          _buildProbabilityRow(
+                              'BTTS nem',
+                              _simulationResult.bttsNoProbability,
+                              Colors.brown),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // StatPal valós adatok
                   if (_simulationResult.homeForm != null ||
                       _simulationResult.homePosition != null ||
                       _simulationResult.h2hMatchesUsed > 0)
@@ -254,11 +330,14 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                                   'Vendég gólátlag',
                                   '${_simulationResult.awayGoalsScoredAvg!.toStringAsFixed(2)} rúgott / ${_simulationResult.awayGoalsConcededAvg?.toStringAsFixed(2) ?? "?"} kapott'),
                             if (_simulationResult.h2hMatchesUsed > 0) ...[
-                              _infoRow('H2H meccsek',
-                                  '${_simulationResult.h2hMatchesUsed} db'),
+                              _infoRow(
+                                  'H2H meccsek',
+                                  '\( {_simulationResult.h2hMatchesUsed} db \){_simulationResult.usedWeightedH2h ? " (súlyozott)" : ""}'),
                               if (_simulationResult.recentScores.isNotEmpty)
-                                _infoRow('Utolsó eredmények',
-                                    _simulationResult.recentScores.join('  •  ')),
+                                _infoRow(
+                                    'Utolsó eredmények',
+                                    _simulationResult.recentScores
+                                        .join('  •  ')),
                             ],
                           ],
                         ),
@@ -266,7 +345,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                     ),
                   const SizedBox(height: 12),
 
-                  // AI szöveges értékelés
+                  // AI szöveg
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -316,11 +395,13 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Colors.black54,
-                    fontWeight: FontWeight.w500)),
+            Expanded(
+              child: Text(label,
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w500)),
+            ),
             Text('${percentage.toStringAsFixed(1)}%',
                 style: TextStyle(
                     fontSize: 11.5, color: color, fontWeight: FontWeight.bold)),
@@ -330,7 +411,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
-            value: percentage / 100,
+            value: (percentage / 100).clamp(0.0, 1.0),
             backgroundColor: const Color(0xFFF1F5F9),
             color: color,
             minHeight: 6,
