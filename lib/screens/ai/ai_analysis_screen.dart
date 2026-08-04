@@ -331,13 +331,14 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                                   '${_simulationResult.awayGoalsScoredAvg!.toStringAsFixed(2)} rúgott / ${_simulationResult.awayGoalsConcededAvg?.toStringAsFixed(2) ?? "?"} kapott'),
                             if (_simulationResult.h2hMatchesUsed > 0) ...[
                               _infoRow(
-                                  'H2H meccsek',
-                                  '\( {_simulationResult.h2hMatchesUsed} db \){_simulationResult.usedWeightedH2h ? " (súlyozott)" : ""}'),
+                                'H2H meccsek',
+                                '\( {_simulationResult.h2hMatchesUsed} db \){_simulationResult.usedWeightedH2h ? " (súlyozott)" : ""}',
+                              ),
                               if (_simulationResult.recentScores.isNotEmpty)
                                 _infoRow(
-                                    'Utolsó eredmények',
-                                    _simulationResult.recentScores
-                                        .join('  •  ')),
+                                  'Utolsó eredmények',
+                                  _simulationResult.recentScores.join('  •  '),
+                                ),
                             ],
                           ],
                         ),
