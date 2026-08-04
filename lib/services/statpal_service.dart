@@ -27,7 +27,6 @@ class StatpalService {
   static Map<String, dynamic>? _cachedData;
   static DateTime? _lastFetchTime;
 
-  /// Élő meccseknél rövid cache, egyébként hosszabb
   static const Duration _liveCacheDuration = Duration(seconds: 25);
   static const Duration _normalCacheDuration = Duration(minutes: 2);
 
@@ -260,6 +259,21 @@ class StatpalService {
     try {
       final response = await http
           .get(Uri.parse(urlStr), headers: {'Accept': 'application/json'});
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Prematch odds lekérése egy bajnoksághoz
+  Future<Map<String, dynamic>?> getPrematchOdds(String leagueId) async {
+    final apiKey = await _getAccessKey();
+    final url = Uri.parse(
+        '$baseUrl/v2/soccer/leagues/$leagueId/odds/prematch?access_key=$apiKey');
+    try {
+      final response =
+          await http.get(url, headers: {'Accept': 'application/json'});
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
