@@ -271,7 +271,7 @@ class AiSimulationService {
                 weightSum += w;
                 if (counted < 6) {
                   recentScores.add(
-                      '\( {t1Score.toInt()}- \){t2Score.toInt()}');
+                      '${t1Score.toInt()}-${t2Score.toInt()}');
                 }
               } else if (t2Id == team1Id) {
                 homeGoalsWeighted += t2Score * w;
@@ -279,7 +279,7 @@ class AiSimulationService {
                 weightSum += w;
                 if (counted < 6) {
                   recentScores.add(
-                      '\( {t2Score.toInt()}- \){t1Score.toInt()}');
+                      '${t2Score.toInt()}-${t1Score.toInt()}');
                 }
               } else {
                 continue;
@@ -452,18 +452,18 @@ class AiSimulationService {
         '50 000 szimuláció alapján a mérkőzés $strength: **$favorite**.\n');
 
     buffer.writeln(
-        '• Hazai győzelem (\( homeTeam): ** \){s.homeWinProbability.toStringAsFixed(1)}%**');
+        '• Hazai győzelem ($homeTeam): **${s.homeWinProbability.toStringAsFixed(1)}%**');
     buffer.writeln(
         '• Döntetlen: **${s.drawProbability.toStringAsFixed(1)}%**');
     buffer.writeln(
-        '• Vendég győzelem (\( awayTeam): ** \){s.awayWinProbability.toStringAsFixed(1)}%**\n');
+        '• Vendég győzelem ($awayTeam): **${s.awayWinProbability.toStringAsFixed(1)}%**\n');
 
     buffer.writeln(
         'Várható gólátlag (xG): **${s.averageHomeGoals} – ${s.averageAwayGoals}**');
     buffer.writeln('Legvalószínűbb eredmény: **${s.mostLikelyScore}**\n');
 
     buffer.writeln(
-        'Over 2.5: **\( {s.over25Probability.toStringAsFixed(1)}%**  |  BTTS igen: ** \){s.bttsYesProbability.toStringAsFixed(1)}%**\n');
+        'Over 2.5: **${s.over25Probability.toStringAsFixed(1)}%**  |  BTTS igen: **${s.bttsYesProbability.toStringAsFixed(1)}%**\n');
 
     if (s.homePosition != null || s.awayPosition != null) {
       buffer.writeln(
