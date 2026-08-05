@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../services/ai_simulation_service.dart';
 import '../../services/statpal_service.dart';
+import '../../services/gemini_service.dart';
+import '../../utils/odds_value_calculator.dart';
 
 class AiAnalysisScreen extends StatefulWidget {
   final String homeTeam;
@@ -28,6 +30,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
   bool _isLoading = true;
   late MatchSimulationResult _simulationResult;
   String _aiAnalysisText = '';
+  bool _usedGemini = false;
 
   // Értékjelzés
   double? _homeEdge;
@@ -51,133 +54,83 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
       leagueId: widget.leagueId,
     );
 
-    final analysis = await AiSimulationService.getAiMatchAnalysis(
-      homeTeam: widget.homeTeam,
-      awayTeam: widget.awayTeam,
-      simulation: result,
-    );
+    // Odds + érték számítás (közös helperrel)
+    final oddsValue = await _calculateValue(result);
 
-    // Odds + érték számítás
-    await _calculateValue(result);
+    // Elsőként megpróbáljuk a valódi Gemini AI elemzést; ha nincs
+    // beállított kulcs vagy a hívás sikertelen, a helyi sablon
+    // elemzésre esünk vissza, hogy a képernyő mindig működjön.
+    String analysis;
+    bool usedGemini = false;
+    try {
+      final geminiText = await GeminiService().generateMatchAnalysis(
+        homeTeam: widget.homeTeam,
+        awayTeam: widget.awayTeam,
+        leagueName: widget.leagueName,
+        sim: result,
+        value: oddsValue,
+      );
+      if (geminiText != null && geminiText.trim().isNotEmpty) {
+        analysis = geminiText.trim();
+        usedGemini = true;
+      } else {
+        analysis = await AiSimulationService.getAiMatchAnalysis(
+          homeTeam: widget.homeTeam,
+          awayTeam: widget.awayTeam,
+          simulation: result,
+        );
+      }
+    } catch (_) {
+      analysis = await AiSimulationService.getAiMatchAnalysis(
+        homeTeam: widget.homeTeam,
+        awayTeam: widget.awayTeam,
+        simulation: result,
+      );
+    }
 
     if (mounted) {
       setState(() {
         _simulationResult = result;
         _aiAnalysisText = analysis;
+        _usedGemini = usedGemini;
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _calculateValue(MatchSimulationResult sim) async {
-    if (widget.leagueId == null || widget.leagueId!.isEmpty) return;
+  Future<OddsValueResult?> _calculateValue(MatchSimulationResult sim) async {
+    if (widget.leagueId == null || widget.leagueId!.isEmpty) return null;
 
     try {
       final oddsData =
           await StatpalService().getPrematchOdds(widget.leagueId!);
-      if (oddsData == null) return;
+      final leagueOdds = OddsValueCalculator.parseLeagueOdds(oddsData);
 
-      final prematch = oddsData['prematch_odds'];
-      if (prematch == null) return;
+      final odds = OddsValueCalculator.findOdds(
+        leagueOdds,
+        homeId: widget.team1Id,
+        awayId: widget.team2Id,
+        homeName: widget.homeTeam,
+        awayName: widget.awayTeam,
+      );
 
-      final league = prematch['league'];
-      if (league == null) return;
+      final result = OddsValueCalculator.calculateEdge(
+        odds: odds,
+        homeWinProbability: sim.homeWinProbability,
+        drawProbability: sim.drawProbability,
+        awayWinProbability: sim.awayWinProbability,
+      );
 
-      final matches = league['match'];
-      if (matches is! List) return;
+      _homeEdge = result.homeEdge;
+      _drawEdge = result.drawEdge;
+      _awayEdge = result.awayEdge;
+      _bestValueSide = result.bestSide;
+      _bestValueEdge = result.bestEdge;
 
-      Map? targetMatch;
-      for (final m in matches) {
-        if (m is! Map) continue;
-        final homeId = m['home']?['id']?.toString();
-        final awayId = m['away']?['id']?.toString();
-        final homeName = (m['home']?['name']?.toString() ?? '').toLowerCase();
-        final awayName = (m['away']?['name']?.toString() ?? '').toLowerCase();
-
-        final matchById = (widget.team1Id != null &&
-                widget.team2Id != null &&
-                homeId == widget.team1Id &&
-                awayId == widget.team2Id);
-
-        final matchByName = homeName.contains(widget.homeTeam.toLowerCase()) ||
-            widget.homeTeam.toLowerCase().contains(homeName);
-
-        if (matchById || matchByName) {
-          targetMatch = m;
-          break;
-        }
-      }
-
-      if (targetMatch == null) return;
-
-      final oddsList = targetMatch['odds'];
-      if (oddsList is! List) return;
-
-      Map? oneXTwo;
-      for (final o in oddsList) {
-        if (o is Map && (o['name']?.toString().toLowerCase() == '1x2')) {
-          oneXTwo = o;
-          break;
-        }
-      }
-      if (oneXTwo == null) return;
-
-      final bookmakers = oneXTwo['bookmaker'];
-      if (bookmakers is! List || bookmakers.isEmpty) return;
-
-      // Az első bookmaker oddsait használjuk
-      final firstBook = bookmakers.first;
-      if (firstBook is! Map) return;
-
-      final oddItems = firstBook['odd'];
-      if (oddItems is! List) return;
-
-      double? homeOdds, drawOdds, awayOdds;
-      for (final item in oddItems) {
-        if (item is! Map) continue;
-        final name = (item['name']?.toString() ?? '').toLowerCase();
-        final value = double.tryParse(item['value']?.toString() ?? '');
-        if (value == null || value <= 1.01) continue;
-
-        if (name == 'home' || name == '1') homeOdds = value;
-        if (name == 'draw' || name == 'x') drawOdds = value;
-        if (name == 'away' || name == '2') awayOdds = value;
-      }
-
-      if (homeOdds == null || drawOdds == null || awayOdds == null) return;
-
-      // Implied probability (egyszerű, margin nélkül)
-      final homeImplied = 100 / homeOdds;
-      final drawImplied = 100 / drawOdds;
-      final awayImplied = 100 / awayOdds;
-
-      final homeEdge = sim.homeWinProbability - homeImplied;
-      final drawEdge = sim.drawProbability - drawImplied;
-      final awayEdge = sim.awayWinProbability - awayImplied;
-
-      _homeEdge = homeEdge;
-      _drawEdge = drawEdge;
-      _awayEdge = awayEdge;
-
-      // Legjobb érték keresése (min. +5% edge)
-      double best = -100;
-      String? side;
-      if (homeEdge > best && homeEdge >= 5.0) {
-        best = homeEdge;
-        side = 'home';
-      }
-      if (drawEdge > best && drawEdge >= 5.0) {
-        best = drawEdge;
-        side = 'draw';
-      }
-      if (awayEdge > best && awayEdge >= 5.0) {
-        best = awayEdge;
-        side = 'away';
-      }
-
-      _bestValueSide = side;
-      _bestValueEdge = side != null ? best : null;
-    } catch (_) {}
+      return result;
+    } catch (_) {
+      return null;
+    }
   }
 
   Color _qualityColor(String q) {
@@ -642,7 +595,7 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                             const SizedBox(height: 6),
                             _infoRow(
                               'H2H meccsek',
-                              '\( {_simulationResult.h2hMatchesUsed} db \){_simulationResult.usedWeightedH2h ? " (súlyozott)" : ""}',
+                              '${_simulationResult.h2hMatchesUsed} db${_simulationResult.usedWeightedH2h ? " (súlyozott)" : ""}',
                             ),
                             if (_simulationResult.recentScores.isNotEmpty)
                               _infoRow(
@@ -667,17 +620,40 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.psychology,
+                              const Icon(Icons.psychology,
                                   size: 18, color: Colors.blueAccent),
-                              SizedBox(width: 6),
-                              Text(
-                                'AI Szakértői Értékelés',
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87),
+                              const SizedBox(width: 6),
+                              const Expanded(
+                                child: Text(
+                                  'AI Szakértői Értékelés',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: (_usedGemini
+                                          ? Colors.deepPurple
+                                          : Colors.blueGrey)
+                                      .withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  _usedGemini ? 'Gemini AI' : 'Statisztikai modell',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: _usedGemini
+                                        ? Colors.deepPurple
+                                        : Colors.blueGrey,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
