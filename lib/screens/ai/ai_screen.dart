@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/statpal_service.dart';
 import '../../services/ai_simulation_service.dart';
 import '../../utils/app_translator.dart';
 import '../../utils/odds_value_calculator.dart';
 import 'ai_analysis_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AiScreen extends StatefulWidget {
   const AiScreen({super.key});
@@ -13,11 +13,13 @@ class AiScreen extends StatefulWidget {
   State<AiScreen> createState() => _AiScreenState();
 }
 
-class _AiScreenState extends State<AiScreen> {
+class _AiScreenState extends State<AiScreen> with SingleTickerProviderStateMixin {
   final StatpalService _statpal = StatpalService();
+  late TabController _tabController;
+
   bool _isLoading = true;
   bool _hideWeakData = true;
-  String _filter = 'all'; // all | value | over25 | btts | double
+  String _filter = 'all';
 
   List<Map<String, dynamic>> _tips = [];
   Set<String> _favoriteTeamIds = {};
@@ -25,7 +27,14 @@ class _AiScreenState extends State<AiScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -44,8 +53,6 @@ class _AiScreenState extends State<AiScreen> {
       final leagueId = league['id']?.toString();
       final matches = league['matches'] as List? ?? [];
 
-      // Az oddsokat bajnokságonként csak egyszer kérjük le (nem meccsenként),
-      // hogy ne terheljük feleslegesen az API-t.
       Map<String, Map<String, double>> leagueOdds = {};
       if (leagueId != null && leagueId.isNotEmpty) {
         try {
@@ -58,7 +65,6 @@ class _AiScreenState extends State<AiScreen> {
         if (m is! Map) continue;
 
         final status = (m['status']?.toString() ?? '').toUpperCase();
-        // Csak még nem kezdődött vagy élő meccsek
         if (status == 'FT' || status == 'AET' || status == 'FT_PEN') continue;
 
         final homeId = m['home']?['id']?.toString();
@@ -68,7 +74,6 @@ class _AiScreenState extends State<AiScreen> {
         final awayName = AppTranslator.translateTeam(
             m['away']?['name']?.toString() ?? 'Vendég');
 
-        // Szimuláció futtatása
         final sim = await AiSimulationService.runMonteCarloSimulation(
           homeTeam: homeName,
           awayTeam: awayName,
@@ -79,7 +84,6 @@ class _AiScreenState extends State<AiScreen> {
 
         if (_hideWeakData && sim.dataQuality == 'weak') continue;
 
-        // Érték számítás (egyszerűsített – a teljes odds később jön)
         final maxProb = [
           sim.homeWinProbability,
           sim.drawProbability,
@@ -98,8 +102,6 @@ class _AiScreenState extends State<AiScreen> {
           tipProb = sim.awayWinProbability;
         }
 
-        // Valós piaci odds-hoz viszonyított érték (value) számítása,
-        // ha van elérhető odds ehhez a meccshez.
         final odds = OddsValueCalculator.findOdds(
           leagueOdds,
           homeId: homeId,
@@ -129,11 +131,11 @@ class _AiScreenState extends State<AiScreen> {
               (awayId != null && _favoriteTeamIds.contains(awayId)),
           'maxProb': maxProb,
           'value': value,
+          'dataQuality': sim.dataQuality,
         });
       }
     }
 
-    // Rendezés: kedvencek előre, aztán erősség szerint
     collected.sort((a, b) {
       if (a['isFavorite'] == true && b['isFavorite'] != true) return -1;
       if (b['isFavorite'] == true && a['isFavorite'] != true) return 1;
@@ -148,31 +150,21 @@ class _AiScreenState extends State<AiScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filteredTips {
+  List<Map<String, dynamic>> get _valueTips {
+    return _tips.where((t) {
+      final value = t['value'] as OddsValueResult?;
+      if (value != null && value.hasOdds) {
+        return value.hasValue; // csak ahol van valódi value
+      }
+      return t['tipProb'] >= 58;
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> get _ensembleTips {
+    // Egyelőre a legstabilabb tippeket mutatjuk (később jön a valódi ensemble logika)
     return _tips.where((t) {
       final sim = t['sim'] as MatchSimulationResult;
-
-      switch (_filter) {
-        case 'value':
-          final value = t['value'] as OddsValueResult?;
-          // Ha van piaci odds ehhez a meccshez, a valós value-t nézzük
-          // (a modell valószínűsége min. 5 százalékponttal a piaci ár felett).
-          // Ha nincs elérhető odds, a legerősebb modellbecslésre esünk vissza.
-          if (value != null && value.hasOdds) {
-            return value.hasValue;
-          }
-          return t['tipProb'] >= 60;
-        case 'over25':
-          return sim.over25Probability >= 55;
-        case 'btts':
-          return sim.bttsYesProbability >= 55;
-        case 'double':
-          return sim.doubleChance1X >= 70 ||
-              sim.doubleChance12 >= 70 ||
-              sim.doubleChanceX2 >= 70;
-        default:
-          return true;
-      }
+      return t['tipProb'] >= 55 && sim.dataQuality != 'weak';
     }).toList();
   }
 
@@ -196,6 +188,34 @@ class _AiScreenState extends State<AiScreen> {
       ),
       body: Column(
         children: [
+          // Value Motor / Ensemble fülek
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Container(
+              height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  color: const Color(0xFF0D9488), // zöldes teal
+                ),
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.black54,
+                labelStyle: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600),
+                tabs: const [
+                  Tab(text: 'Value Motor'),
+                  Tab(text: 'Ensemble'),
+                ],
+              ),
+            ),
+          ),
+
           // Szűrők
           Container(
             color: Colors.white,
@@ -205,10 +225,9 @@ class _AiScreenState extends State<AiScreen> {
               child: Row(
                 children: [
                   _filterChip('Összes', 'all'),
-                  _filterChip('Erős tipp', 'value'),
+                  _filterChip('Erős value', 'value'),
                   _filterChip('Over 2.5', 'over25'),
                   _filterChip('BTTS', 'btts'),
-                  _filterChip('Double Chance', 'double'),
                   const SizedBox(width: 8),
                   FilterChip(
                     label: const Text('Gyenge adat elrejt',
@@ -218,7 +237,6 @@ class _AiScreenState extends State<AiScreen> {
                       setState(() => _hideWeakData = v);
                       _loadData();
                     },
-                    selectedColor: Colors.blue.shade50,
                   ),
                 ],
               ),
@@ -226,6 +244,7 @@ class _AiScreenState extends State<AiScreen> {
           ),
           const Divider(height: 1),
 
+          // Tartalom
           Expanded(
             child: _isLoading
                 ? const Center(
@@ -239,181 +258,203 @@ class _AiScreenState extends State<AiScreen> {
                       ],
                     ),
                   )
-                : _filteredTips.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Nincs a szűrésnek megfelelő tipp ma.',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadData,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _filteredTips.length,
-                          itemBuilder: (context, index) {
-                            final tip = _filteredTips[index];
-                            final sim = tip['sim'] as MatchSimulationResult;
-                            final isFav = tip['isFavorite'] == true;
-
-                            return Card(
-                              elevation: 0,
-                              margin: const EdgeInsets.only(bottom: 10),
-                              color: isFav
-                                  ? const Color(0xFFFFF8E1)
-                                  : Colors.white,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => AiAnalysisScreen(
-                                        homeTeam: tip['homeTeam'],
-                                        awayTeam: tip['awayTeam'],
-                                        leagueName: tip['leagueName'],
-                                        team1Id: tip['homeId'],
-                                        team2Id: tip['awayId'],
-                                        leagueId: tip['leagueId'],
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(14),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              tip['leagueName']
-                                                  .toString()
-                                                  .toUpperCase(),
-                                              style: const TextStyle(
-                                                  fontSize: 10,
-                                                  color: Colors.blueGrey,
-                                                  fontWeight: FontWeight.w600),
-                                            ),
-                                          ),
-                                          if (isFav)
-                                            const Icon(Icons.star,
-                                                size: 16, color: Colors.amber),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            tip['time'] ?? '',
-                                            style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        '${tip['homeTeam']}  vs  ${tip['awayTeam']}',
-                                        style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          _miniStat('1',
-                                              sim.homeWinProbability, Colors.green),
-                                          _miniStat('X',
-                                              sim.drawProbability, Colors.orange),
-                                          _miniStat('2',
-                                              sim.awayWinProbability, Colors.blue),
-                                          const Spacer(),
-                                          if ((tip['value'] as OddsValueResult?)
-                                                  ?.hasValue ==
-                                              true) ...[
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 6, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: Colors.green.withOpacity(0.15),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                'ÉRTÉK +${(tip['value'] as OddsValueResult).bestEdge!.toStringAsFixed(1)}%',
-                                                style: const TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.green),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                          ],
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue.shade50,
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Text(
-                                              _tipLabel(tip['tipSide'],
-                                                  tip['tipProb']),
-                                              style: const TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.blueAccent),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Text(
-                                            'O2.5 ${sim.over25Probability.toStringAsFixed(0)}%',
-                                            style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.black54),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(
-                                            'BTTS ${sim.bttsYesProbability.toStringAsFixed(0)}%',
-                                            style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.black54),
-                                          ),
-                                          const Spacer(),
-                                          Text(
-                                            sim.dataQuality == 'strong'
-                                                ? 'Erős adat'
-                                                : sim.dataQuality == 'medium'
-                                                    ? 'Közepes'
-                                                    : 'Gyenge',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: sim.dataQuality == 'strong'
-                                                  ? Colors.green
-                                                  : sim.dataQuality == 'medium'
-                                                      ? Colors.orange
-                                                      : Colors.redAccent,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildTipsList(_valueTips, isValueMode: true),
+                      _buildTipsList(_ensembleTips, isValueMode: false),
+                    ],
+                  ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTipsList(List<Map<String, dynamic>> tips, {required bool isValueMode}) {
+    if (tips.isEmpty) {
+      return const Center(
+        child: Text(
+          'Nincs a szűrésnek megfelelő tipp.',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: tips.length,
+        itemBuilder: (context, index) {
+          final tip = tips[index];
+          final sim = tip['sim'] as MatchSimulationResult;
+          final isFav = tip['isFavorite'] == true;
+          final value = tip['value'] as OddsValueResult?;
+
+          return Card(
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 10),
+            color: isFav ? const Color(0xFFFFF8E1) : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AiAnalysisScreen(
+                      homeTeam: tip['homeTeam'],
+                      awayTeam: tip['awayTeam'],
+                      leagueName: tip['leagueName'],
+                      team1Id: tip['homeId'],
+                      team2Id: tip['awayId'],
+                      leagueId: tip['leagueId'],
+                    ),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Liga + idő
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            tip['leagueName'].toString().toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.blueGrey,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (isFav)
+                          const Icon(Icons.star, size: 16, color: Colors.amber),
+                        const SizedBox(width: 6),
+                        Text(
+                          tip['time'] ?? '',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Csapatok + Badge
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${tip['homeTeam']} vs ${tip['awayTeam']}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        if (isValueMode && value?.hasValue == true)
+                          Text(
+                            '+${value!.bestEdge!.toStringAsFixed(1)}%',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF16A34A),
+                            ),
+                          )
+                        else if (!isValueMode)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7C3AED).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'KONSZENZUS',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF7C3AED),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 1 X 2
+                    Row(
+                      children: [
+                        _probBox('1', sim.homeWinProbability, Colors.green),
+                        const SizedBox(width: 8),
+                        _probBox('X', sim.drawProbability, Colors.orange),
+                        const SizedBox(width: 8),
+                        _probBox('2', sim.awayWinProbability, Colors.blue),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Alsó infók
+                    Row(
+                      children: [
+                        Text(
+                          'O2.5 ${sim.over25Probability.toStringAsFixed(0)}%',
+                          style: const TextStyle(fontSize: 11, color: Colors.black54),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'BTTS ${sim.bttsYesProbability.toStringAsFixed(0)}%',
+                          style: const TextStyle(fontSize: 11, color: Colors.black54),
+                        ),
+                        const Spacer(),
+                        Text(
+                          sim.dataQuality == 'strong'
+                              ? 'Erős adat'
+                              : sim.dataQuality == 'medium'
+                                  ? 'Közepes'
+                                  : 'Gyenge',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: sim.dataQuality == 'strong'
+                                ? Colors.green
+                                : sim.dataQuality == 'medium'
+                                    ? Colors.orange
+                                    : Colors.redAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _probBox(String label, double pct, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$label ${pct.toStringAsFixed(0)}%',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
       ),
     );
   }
@@ -429,27 +470,5 @@ class _AiScreenState extends State<AiScreen> {
         selectedColor: Colors.blue.shade50,
       ),
     );
-  }
-
-  Widget _miniStat(String label, double pct, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: Column(
-        children: [
-          Text(label,
-              style: TextStyle(
-                  fontSize: 10, color: color, fontWeight: FontWeight.bold)),
-          Text('${pct.toStringAsFixed(0)}%',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-
-  String _tipLabel(String side, double prob) {
-    final p = prob.toStringAsFixed(0);
-    if (side == 'home') return 'Hazai $p%';
-    if (side == 'away') return 'Vendég $p%';
-    return 'Döntetlen $p%';
   }
 }
