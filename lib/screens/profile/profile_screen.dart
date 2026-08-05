@@ -234,6 +234,9 @@ class ProfileScreen extends StatelessWidget {
                   decoration: const InputDecoration(
                     labelText: 'google gemini api kulcs',
                     labelStyle: TextStyle(fontSize: 12),
+                    helperText: 'ez írja a szöveges AI elemzést a meccs részleteinél',
+                    helperStyle: TextStyle(fontSize: 10.5),
+                    helperMaxLines: 2,
                     border: OutlineInputBorder(),
                   ),
                 ),
