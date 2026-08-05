@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/statpal_service.dart';
 import '../../services/ai_simulation_service.dart';
 import '../../utils/app_translator.dart';
+import '../../utils/odds_value_calculator.dart';
 import 'ai_analysis_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,6 +43,16 @@ class _AiScreenState extends State<AiScreen> {
       final leagueName = league['name']?.toString() ?? '';
       final leagueId = league['id']?.toString();
       final matches = league['matches'] as List? ?? [];
+
+      // Az oddsokat bajnokságonként csak egyszer kérjük le (nem meccsenként),
+      // hogy ne terheljük feleslegesen az API-t.
+      Map<String, Map<String, double>> leagueOdds = {};
+      if (leagueId != null && leagueId.isNotEmpty) {
+        try {
+          final oddsData = await _statpal.getPrematchOdds(leagueId);
+          leagueOdds = OddsValueCalculator.parseLeagueOdds(oddsData);
+        } catch (_) {}
+      }
 
       for (final m in matches) {
         if (m is! Map) continue;
@@ -87,6 +98,22 @@ class _AiScreenState extends State<AiScreen> {
           tipProb = sim.awayWinProbability;
         }
 
+        // Valós piaci odds-hoz viszonyított érték (value) számítása,
+        // ha van elérhető odds ehhez a meccshez.
+        final odds = OddsValueCalculator.findOdds(
+          leagueOdds,
+          homeId: homeId,
+          awayId: awayId,
+          homeName: homeName,
+          awayName: awayName,
+        );
+        final value = OddsValueCalculator.calculateEdge(
+          odds: odds,
+          homeWinProbability: sim.homeWinProbability,
+          drawProbability: sim.drawProbability,
+          awayWinProbability: sim.awayWinProbability,
+        );
+
         collected.add({
           'leagueName': leagueName,
           'leagueId': leagueId,
@@ -101,6 +128,7 @@ class _AiScreenState extends State<AiScreen> {
           'isFavorite': (homeId != null && _favoriteTeamIds.contains(homeId)) ||
               (awayId != null && _favoriteTeamIds.contains(awayId)),
           'maxProb': maxProb,
+          'value': value,
         });
       }
     }
@@ -126,8 +154,14 @@ class _AiScreenState extends State<AiScreen> {
 
       switch (_filter) {
         case 'value':
-          // Egyelőre a legerősebb tippeket mutatjuk értéknek
-          return t['tipProb'] >= 55;
+          final value = t['value'] as OddsValueResult?;
+          // Ha van piaci odds ehhez a meccshez, a valós value-t nézzük
+          // (a modell valószínűsége min. 5 százalékponttal a piaci ár felett).
+          // Ha nincs elérhető odds, a legerősebb modellbecslésre esünk vissza.
+          if (value != null && value.hasOdds) {
+            return value.hasValue;
+          }
+          return t['tipProb'] >= 60;
         case 'over25':
           return sim.over25Probability >= 55;
         case 'btts':
@@ -295,6 +329,27 @@ class _AiScreenState extends State<AiScreen> {
                                           _miniStat('2',
                                               sim.awayWinProbability, Colors.blue),
                                           const Spacer(),
+                                          if ((tip['value'] as OddsValueResult?)
+                                                  ?.hasValue ==
+                                              true) ...[
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.withOpacity(0.15),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                'ÉRTÉK +${(tip['value'] as OddsValueResult).bestEdge!.toStringAsFixed(1)}%',
+                                                style: const TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.green),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                          ],
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 8, vertical: 4),
