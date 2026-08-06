@@ -31,6 +31,7 @@ class _MatchesScreenState extends State<MatchesScreen>
   Timer? _autoRefreshTimer;
 
   static const List<String> _excludedKeywords = [
+    // Nemek / korosztály (már meglévő szűrők)
     'női',
     'women',
     'woman',
@@ -47,12 +48,23 @@ class _MatchesScreenState extends State<MatchesScreen>
     'junior',
     'reserve',
     'tartalék',
+    'a-liga női',
+    'premier liga női',
+
+    // Teljes ország kizárása (kérésre)
+    'ecuador',
+
+    // 3. osztály és az alatti szintek, illetve amatőr/regionális ligák
     'regionalliga',
     '3. liga',
+    'liga 3',
     '3. osztály',
     '4. osztály',
+    'liga 4',
     'serie c',
     'serie d',
+    'primera c',
+    'tercera',
     'league one',
     'league two',
     'national league',
@@ -66,8 +78,14 @@ class _MatchesScreenState extends State<MatchesScreen>
     'oberliga',
     'landesliga',
     'verbandsliga',
-    'a-liga női',
-    'premier liga női',
+    'bezirksliga',
+    'kreisliga',
+    'amateur',
+    'amatőr',
+    'promocional',
+    'promotion league',
+    'npl',
+    'state league',
   ];
 
   @override
@@ -116,6 +134,22 @@ class _MatchesScreenState extends State<MatchesScreen>
     final awayId = match['away']?['id']?.toString();
     return (homeId != null && _favoriteTeamIds.contains(homeId)) ||
         (awayId != null && _favoriteTeamIds.contains(awayId));
+  }
+
+  /// A StatPal néhány végpontnál (jellemzően még el nem kezdődött
+  /// meccseknél) szó szerint a "?" karaktert küldi a gólszám helyén
+  /// placeholderként, nem null-t vagy üres stringet - emiatt a régi
+  /// "??" lánc nem esett át rajta, és a felületen "?" jelent meg a
+  /// gólszám helyén. Ez a helper minden érvénytelen/placeholder
+  /// értéket null-ra cserél, hogy a lánc a következő forrásra, végül
+  /// a "-" alapértelmezésre essen át.
+  static String? _sanitizeScore(dynamic raw) {
+    if (raw == null) return null;
+    final s = raw.toString().trim();
+    if (s.isEmpty || s == '?' || s == 'null' || s == '-' || s == 'N/A') {
+      return null;
+    }
+    return s;
   }
 
   @override
@@ -627,14 +661,20 @@ class _MatchesScreenState extends State<MatchesScreen>
                               final awayTeam =
                                   AppTranslator.translateTeam(awayRaw);
 
-                              final homeScore = match['home']?['goals'] ??
-                                  match['home']?['score'] ??
-                                  match['ft']?['home_goals'] ??
-                                  '-';
-                              final awayScore = match['away']?['goals'] ??
-                                  match['away']?['score'] ??
-                                  match['ft']?['away_goals'] ??
-                                  '-';
+                              final homeScore =
+                                  _sanitizeScore(match['home']?['goals']) ??
+                                      _sanitizeScore(
+                                          match['home']?['score']) ??
+                                      _sanitizeScore(
+                                          match['ft']?['home_goals']) ??
+                                      '-';
+                              final awayScore =
+                                  _sanitizeScore(match['away']?['goals']) ??
+                                      _sanitizeScore(
+                                          match['away']?['score']) ??
+                                      _sanitizeScore(
+                                          match['ft']?['away_goals']) ??
+                                      '-';
 
                               final statusRaw =
                                   match['status']?.toString() ?? '';
