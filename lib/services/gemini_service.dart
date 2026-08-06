@@ -111,13 +111,20 @@ class GeminiService {
     if (sim.awayGoalsScoredAvg != null && sim.awayGoalsConcededAvg != null) {
       buffer.writeln('- $awayTeam vendég gólátlag: ${sim.awayGoalsScoredAvg!.toStringAsFixed(2)} rúgott / ${sim.awayGoalsConcededAvg!.toStringAsFixed(2)} kapott mérkőzésenként');
     }
+    if (sim.homeXgAvg != null || sim.awayXgAvg != null) {
+      buffer.writeln('- StatPal meccs-szintű várható gól (xG) forma az elmúlt mérkőzésekből: $homeTeam ${sim.homeXgAvg?.toStringAsFixed(2) ?? "nincs adat"} (${sim.xgMatchesUsedHome} meccs alapján), $awayTeam ${sim.awayXgAvg?.toStringAsFixed(2) ?? "nincs adat"} (${sim.xgMatchesUsedAway} meccs alapján)');
+    }
+    if ((sim.homeInjuredCount != null && sim.homeInjuredCount! > 0) ||
+        (sim.awayInjuredCount != null && sim.awayInjuredCount! > 0)) {
+      buffer.writeln('- Jelenleg sérült/hiányzó játékosok a keretben: $homeTeam ${sim.homeInjuredCount ?? 0} fő (ebből ${sim.homeKeyInjuredCount ?? 0} rendszeres kezdő), $awayTeam ${sim.awayInjuredCount ?? 0} fő (ebből ${sim.awayKeyInjuredCount ?? 0} rendszeres kezdő)');
+    }
     if (sim.h2hMatchesUsed > 0) {
       buffer.writeln('- Egymás elleni (H2H) meccsek figyelembe véve: ${sim.h2hMatchesUsed} db${sim.usedWeightedH2h ? " (a friss eredmények nagyobb súllyal)" : ""}');
       if (sim.recentScores.isNotEmpty) {
         buffer.writeln('- Legutóbbi egymás elleni eredmények: ${sim.recentScores.join(", ")}');
       }
     }
-    buffer.writeln('- Adatminőség: ${sim.dataQuality == "strong" ? "erős (sok H2H és tabella adat)" : sim.dataQuality == "medium" ? "közepes" : "gyenge (kevés adat, óvatosan kezelendő)"}');
+    buffer.writeln('- Adatminőség: ${sim.dataQuality == "strong" ? "erős (sok H2H/xG és tabella adat)" : sim.dataQuality == "medium" ? "közepes" : "gyenge (kevés adat, óvatosan kezelendő)"}');
 
     if (value != null && value.hasOdds) {
       buffer.writeln();
@@ -135,10 +142,11 @@ class GeminiService {
     buffer.writeln('FELADAT:');
     buffer.writeln(
         '- Írj egy 4-6 mondatos, folyó szövegű, magyar nyelvű elemzést a fenti adatok alapján. '
-        'Emeld ki, melyik csapat esélyesebb és miért (forma, gólátlag, H2H, tabella - amiből van adat), '
+        'Emeld ki, melyik csapat esélyesebb és miért (forma, gólátlag, xG, sérülések, H2H, tabella - amiből van adat), '
         'térj ki a várható gólszámra/BTTS-re, és ha volt value jelzés, említsd meg röviden.');
     buffer.writeln(
-        '- Ne találj ki olyan tényt (sérülés, hiányzó játékos, edzőváltás stb.), ami nem szerepel a fenti adatok között.');
+        '- Ne találj ki olyan tényt (sérülés, hiányzó játékos, edzőváltás stb.), ami nem szerepel a fenti adatok között - '
+        'ha viszont fentebb szerepel sérülés-adat, azt szabadon felhasználhatod az elemzésben.');
     buffer.writeln(
         '- Ha az adatminőség gyenge, jelezd, hogy a becslés bizonytalanabb.');
     buffer.writeln(
