@@ -46,12 +46,32 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
   }
 
   Future<void> _runAnalysis() async {
+    // Az xG-pool és a sérülés-adat lekérése ehhez az egy meccshez -
+    // ha az AI Tippek listából érkeztünk, a hívó már betölthette
+    // ezeket bajnokság-szinten, de ez a képernyő önállóan is
+    // elérhető (pl. kedvencből), ezért itt is le tudja kérni.
+    List<Map<String, dynamic>>? pool;
+    Map<String, dynamic>? teamStatsData;
+
+    if (widget.leagueId != null && widget.leagueId!.isNotEmpty) {
+      try {
+        pool =
+            await StatpalService().getRecentLeagueMatchPool(widget.leagueId!);
+      } catch (_) {}
+      try {
+        teamStatsData =
+            await StatpalService().getLeagueTeamStats(widget.leagueId!);
+      } catch (_) {}
+    }
+
     final result = await AiSimulationService.runMonteCarloSimulation(
       homeTeam: widget.homeTeam,
       awayTeam: widget.awayTeam,
       team1Id: widget.team1Id,
       team2Id: widget.team2Id,
       leagueId: widget.leagueId,
+      leagueMatchPool: pool,
+      leagueTeamStatsData: teamStatsData,
     );
 
     // Odds + érték számítás (közös helperrel)
@@ -591,6 +611,31 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                             _infoRow(
                                 'Vendég gólátlag',
                                 '${_simulationResult.awayGoalsScoredAvg!.toStringAsFixed(2)} rúgott / ${_simulationResult.awayGoalsConcededAvg?.toStringAsFixed(2) ?? "?"} kapott'),
+                          if (_simulationResult.homeXgAvg != null ||
+                              _simulationResult.awayXgAvg != null) ...[
+                            const SizedBox(height: 8),
+                            _infoRow(
+                                'Hazai xG (StatPal)',
+                                _simulationResult.homeXgAvg != null
+                                    ? '${_simulationResult.homeXgAvg!.toStringAsFixed(2)} / meccs (${_simulationResult.xgMatchesUsedHome} meccs)'
+                                    : 'Nincs adat'),
+                            _infoRow(
+                                'Vendég xG (StatPal)',
+                                _simulationResult.awayXgAvg != null
+                                    ? '${_simulationResult.awayXgAvg!.toStringAsFixed(2)} / meccs (${_simulationResult.xgMatchesUsedAway} meccs)'
+                                    : 'Nincs adat'),
+                          ],
+                          if ((_simulationResult.homeInjuredCount ?? 0) > 0 ||
+                              (_simulationResult.awayInjuredCount ?? 0) >
+                                  0) ...[
+                            const SizedBox(height: 8),
+                            _infoRow(
+                                'Sérültek (Hazai)',
+                                '${_simulationResult.homeInjuredCount ?? 0} fő (${_simulationResult.homeKeyInjuredCount ?? 0} kulcsjátékos)'),
+                            _infoRow(
+                                'Sérültek (Vendég)',
+                                '${_simulationResult.awayInjuredCount ?? 0} fő (${_simulationResult.awayKeyInjuredCount ?? 0} kulcsjátékos)'),
+                          ],
                           if (_simulationResult.h2hMatchesUsed > 0) ...[
                             const SizedBox(height: 6),
                             _infoRow(
