@@ -20,6 +20,18 @@ class MatchSimulationResult {
   final double? awayGoalsScoredAvg;
   final double? awayGoalsConcededAvg;
 
+  // StatPal meccs-szintű xG (Get Match Details By League alapján)
+  final double? homeXgAvg;
+  final double? awayXgAvg;
+  final int xgMatchesUsedHome;
+  final int xgMatchesUsedAway;
+
+  // Sérülések (Get League Stats alapján)
+  final int? homeInjuredCount;
+  final int? awayInjuredCount;
+  final int? homeKeyInjuredCount;
+  final int? awayKeyInjuredCount;
+
   // Gólpiacok
   final double over15Probability;
   final double under15Probability;
@@ -61,6 +73,14 @@ class MatchSimulationResult {
     this.homeGoalsConcededAvg,
     this.awayGoalsScoredAvg,
     this.awayGoalsConcededAvg,
+    this.homeXgAvg,
+    this.awayXgAvg,
+    this.xgMatchesUsedHome = 0,
+    this.xgMatchesUsedAway = 0,
+    this.homeInjuredCount,
+    this.awayInjuredCount,
+    this.homeKeyInjuredCount,
+    this.awayKeyInjuredCount,
     this.over15Probability = 0,
     this.under15Probability = 0,
     this.over25Probability = 0,
@@ -143,6 +163,13 @@ class AiSimulationService {
     String? team1Id,
     String? team2Id,
     String? leagueId,
+    // Ha a hívó (pl. a Tippek lista, ami sok meccset dolgoz fel egy
+    // bajnokságon belül) már lekérte a bajnokság meccs-poolját és a
+    // player/sérülés statisztikáját, ideadhatja - így ez a metódus
+    // nem hívja meg feleslegesen újra ugyanazokat a végpontokat
+    // minden egyes meccshez.
+    List<Map<String, dynamic>>? leagueMatchPool,
+    Map<String, dynamic>? leagueTeamStatsData,
   }) async {
     double homeAvg = 1.35;
     double awayAvg = 1.10;
@@ -298,13 +325,89 @@ class AiSimulationService {
       } catch (_) {}
     }
 
-    // 3. KOMBINÁLÁS
+    // 3. xG (StatPal meccs-szintű expected_goals adat)
+    // A tabella csak nyers gólszámot ad, ami zajos (szerencse,
+    // kihagyott ziccerek). Az xG stabilabb becslést ad a csapatok
+    // valós teljesítményéről, ezért ha van hozzá elég adat, ezt is
+    // bekeverjük a várható gólszám (lambda) számításába.
+    double? homeXgFor;
+    double? homeXgAgainst;
+    double? awayXgFor;
+    double? awayXgAgainst;
+    int xgMatchesHome = 0;
+    int xgMatchesAway = 0;
+
+    if (leagueId != null &&
+        leagueId.isNotEmpty &&
+        team1Id != null &&
+        team2Id != null &&
+        team1Id.isNotEmpty &&
+        team2Id.isNotEmpty) {
+      try {
+        final pool = leagueMatchPool ??
+            await _statpalService.getRecentLeagueMatchPool(leagueId);
+
+        final homeSummary =
+            StatpalService.computeTeamXgSummary(pool, team1Id);
+        final awaySummary =
+            StatpalService.computeTeamXgSummary(pool, team2Id);
+
+        if (homeSummary != null) {
+          homeXgFor = homeSummary.xgFor;
+          homeXgAgainst = homeSummary.xgAgainst;
+          xgMatchesHome = homeSummary.matchesUsed;
+        }
+        if (awaySummary != null) {
+          awayXgFor = awaySummary.xgFor;
+          awayXgAgainst = awaySummary.xgAgainst;
+          xgMatchesAway = awaySummary.matchesUsed;
+        }
+      } catch (_) {}
+    }
+
+    // 4. KOMBINÁLÁS (tabella + xG + H2H)
     final bool weakH2h = h2hCount < 6;
     final double h2hWeight = weakH2h ? 0.22 : 0.58;
     final double tableWeight = 1.0 - h2hWeight;
 
+    // Tábla-alapú becslés (nyers gólszám alapján)
+    double? tableHome;
     if (homeScoredAvg != null && awayConcededAvg != null) {
-      final combinedHome = (homeScoredAvg * 0.55) + (awayConcededAvg * 0.45);
+      tableHome = (homeScoredAvg * 0.55) + (awayConcededAvg * 0.45);
+    }
+    double? tableAway;
+    if (awayScoredAvg != null && homeConcededAvg != null) {
+      tableAway = (awayScoredAvg * 0.55) + (homeConcededAvg * 0.45);
+    }
+
+    // xG-alapú becslés (ha van elég StatPal meccs-szintű adat)
+    double? xgHome;
+    if (homeXgFor != null && awayXgAgainst != null) {
+      xgHome = (homeXgFor * 0.55) + (awayXgAgainst * 0.45);
+    }
+    double? xgAway;
+    if (awayXgFor != null && homeXgAgainst != null) {
+      xgAway = (awayXgFor * 0.55) + (homeXgAgainst * 0.45);
+    }
+
+    // A tábla és az xG becslést kombináljuk: az xG stabilabb (kiszűri
+    // a szerencsét), ezért nagyobb súlyt kap, ha elérhető; ha csak az
+    // egyik forrás van meg, azt használjuk önmagában.
+    double? combinedHome;
+    if (tableHome != null && xgHome != null) {
+      combinedHome = (xgHome * 0.6) + (tableHome * 0.4);
+    } else {
+      combinedHome = xgHome ?? tableHome;
+    }
+
+    double? combinedAway;
+    if (tableAway != null && xgAway != null) {
+      combinedAway = (xgAway * 0.6) + (tableAway * 0.4);
+    } else {
+      combinedAway = xgAway ?? tableAway;
+    }
+
+    if (combinedHome != null) {
       if (h2hCount > 0) {
         homeAvg = (homeAvg * h2hWeight) + (combinedHome * tableWeight);
       } else {
@@ -312,8 +415,7 @@ class AiSimulationService {
       }
     }
 
-    if (awayScoredAvg != null && homeConcededAvg != null) {
-      final combinedAway = (awayScoredAvg * 0.55) + (homeConcededAvg * 0.45);
+    if (combinedAway != null) {
       if (h2hCount > 0) {
         awayAvg = (awayAvg * h2hWeight) + (combinedAway * tableWeight);
       } else {
@@ -323,24 +425,68 @@ class AiSimulationService {
 
     homeAvg *= _formMultiplier(homeForm);
     awayAvg *= _formMultiplier(awayForm);
+
+    // 5. SÉRÜLÉSEK (StatPal Get League Stats alapján)
+    // Minden "kulcsjátékosnak" számító (legalább 450 percet játszó)
+    // sérült kb. 4%-kal csökkenti a csapat várható gólszámát, max. 3
+    // játékosig számolva - így egy hosszú, de alig játszó tartalék
+    // keret sérültjei nem torzítanak irreálisan.
+    int? homeInjured;
+    int? awayInjured;
+    int? homeKeyInjured;
+    int? awayKeyInjured;
+
+    if (leagueId != null && leagueId.isNotEmpty) {
+      try {
+        final teamStatsData = leagueTeamStatsData ??
+            await _statpalService.getLeagueTeamStats(leagueId);
+        final injuryMap = StatpalService.parseInjuryInfo(teamStatsData);
+
+        if (team1Id != null) {
+          final info = injuryMap[team1Id];
+          if (info != null) {
+            homeInjured = info.injuredCount;
+            homeKeyInjured = info.keyInjuredCount;
+          }
+        }
+        if (team2Id != null) {
+          final info = injuryMap[team2Id];
+          if (info != null) {
+            awayInjured = info.injuredCount;
+            awayKeyInjured = info.keyInjuredCount;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (homeKeyInjured != null && homeKeyInjured > 0) {
+      final capped = homeKeyInjured > 3 ? 3 : homeKeyInjured;
+      homeAvg *= (1 - (0.04 * capped));
+    }
+    if (awayKeyInjured != null && awayKeyInjured > 0) {
+      final capped = awayKeyInjured > 3 ? 3 : awayKeyInjured;
+      awayAvg *= (1 - (0.04 * capped));
+    }
+
     homeAvg += _homeAdvantageForLeague(leagueId);
 
     homeAvg = homeAvg.clamp(0.30, 3.5);
     awayAvg = awayAvg.clamp(0.22, 3.1);
 
+    final bool hasGoodTableData = homeScoredAvg != null && awayScoredAvg != null;
+    final bool hasGoodXgData = xgMatchesHome >= 4 && xgMatchesAway >= 4;
+
     String dataQuality;
-    if (h2hCount >= 10 &&
-        homeScoredAvg != null &&
-        awayScoredAvg != null) {
+    if ((h2hCount >= 10 && hasGoodTableData) ||
+        (hasGoodXgData && hasGoodTableData)) {
       dataQuality = 'strong';
-    } else if (h2hCount >= 5 ||
-        (homeScoredAvg != null && awayScoredAvg != null)) {
+    } else if (h2hCount >= 5 || hasGoodTableData || hasGoodXgData) {
       dataQuality = 'medium';
     } else {
       dataQuality = 'weak';
     }
 
-    // 4. MONTE CARLO
+    // 6. MONTE CARLO
     const int totalSims = 50000;
     int homeWins = 0;
     int draws = 0;
@@ -408,6 +554,14 @@ class AiSimulationService {
       homeGoalsConcededAvg: homeConcededAvg,
       awayGoalsScoredAvg: awayScoredAvg,
       awayGoalsConcededAvg: awayConcededAvg,
+      homeXgAvg: homeXgFor,
+      awayXgAvg: awayXgFor,
+      xgMatchesUsedHome: xgMatchesHome,
+      xgMatchesUsedAway: xgMatchesAway,
+      homeInjuredCount: homeInjured,
+      awayInjuredCount: awayInjured,
+      homeKeyInjuredCount: homeKeyInjured,
+      awayKeyInjuredCount: awayKeyInjured,
       over15Probability: (over15 / totalSims) * 100,
       under15Probability: ((totalSims - over15) / totalSims) * 100,
       over25Probability: (over25 / totalSims) * 100,
@@ -475,6 +629,17 @@ class AiSimulationService {
           'Forma (utolsó 5): ${s.homeForm ?? "–"} | ${s.awayForm ?? "–"}');
     }
 
+    if (s.homeXgAvg != null || s.awayXgAvg != null) {
+      buffer.writeln(
+          'StatPal xG forma: ${s.homeXgAvg?.toStringAsFixed(2) ?? "–"} (${s.xgMatchesUsedHome} meccs) | ${s.awayXgAvg?.toStringAsFixed(2) ?? "–"} (${s.xgMatchesUsedAway} meccs)');
+    }
+
+    if ((s.homeInjuredCount != null && s.homeInjuredCount! > 0) ||
+        (s.awayInjuredCount != null && s.awayInjuredCount! > 0)) {
+      buffer.writeln(
+          'Sérültek: $homeTeam ${s.homeInjuredCount ?? 0} fő (${s.homeKeyInjuredCount ?? 0} kulcsjátékos) | $awayTeam ${s.awayInjuredCount ?? 0} fő (${s.awayKeyInjuredCount ?? 0} kulcsjátékos)');
+    }
+
     if (s.h2hMatchesUsed > 0) {
       buffer.write('\nH2H alap: ${s.h2hMatchesUsed} egymás elleni meccs');
       if (s.usedWeightedH2h) {
@@ -488,12 +653,12 @@ class AiSimulationService {
 
     buffer.writeln();
     if (s.dataQuality == 'strong') {
-      buffer.writeln('Erős adatminőség (sok H2H + tabella).');
+      buffer.writeln('Erős adatminőség (sok H2H/xG + tabella).');
     } else if (s.dataQuality == 'medium') {
       buffer.writeln('Közepes adatminőség.');
     } else {
       buffer.writeln(
-          'Gyenge adatminőség – kevés H2H, óvatosan kezeld az esélyeket.');
+          'Gyenge adatminőség – kevés H2H/xG adat, óvatosan kezeld az esélyeket.');
     }
 
     return buffer.toString();
