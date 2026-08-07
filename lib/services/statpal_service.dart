@@ -474,6 +474,49 @@ class StatpalService {
     return out;
   }
 
+  /// Egy adott, korábbi (dd.mm.yyyy) napon lezajlott mérkőzés végső
+  /// eredményét adja vissza a Get Match Details By League végpontból,
+  /// csapat ID-k alapján párosítva. Csak akkor ad vissza eredményt, ha
+  /// a meccs ténylegesen véget ért (FT/AET/FT_PEN) - egyébként null,
+  /// hogy a hívó (PredictionTrackerService) ne oldjon fel korán egy
+  /// még le nem játszott meccset.
+  Future<Map<String, dynamic>?> findMatchResult({
+    required String leagueId,
+    required String date,
+    String? homeTeamId,
+    String? awayTeamId,
+  }) async {
+    if (homeTeamId == null ||
+        awayTeamId == null ||
+        homeTeamId.isEmpty ||
+        awayTeamId.isEmpty) {
+      return null;
+    }
+
+    final data = await getLeagueMatchStats(leagueId, date: date);
+    if (data == null) return null;
+
+    final matches = _extractMatchStatsList(data);
+    for (final m in matches) {
+      if (m['home_id'] == homeTeamId && m['away_id'] == awayTeamId) {
+        final status = (m['status']?.toString() ?? '').toUpperCase();
+        final isFinished =
+            status == 'FT' || status == 'AET' || status == 'FT_PEN';
+        if (!isFinished) return null;
+
+        final hg = m['home_goals'];
+        final ag = m['away_goals'];
+        if (hg is! double || ag is! double) return null;
+
+        return {
+          'home_goals': hg.round(),
+          'away_goals': ag.round(),
+        };
+      }
+    }
+    return null;
+  }
+
   /// A getLeagueTeamStats válaszából csapatonként összesíti a sérült
   /// játékosok számát, illetve a "kulcsjátékosnak" számító (legalább
   /// 450 percet, kb. 5 meccsnyit játszó) sérültek számát, valamint
