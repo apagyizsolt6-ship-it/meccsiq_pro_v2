@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../services/statpal_service.dart';
 import '../../services/ai_simulation_service.dart';
+import '../../services/prediction_tracker_service.dart';
 import '../../utils/app_translator.dart';
 import '../../utils/odds_value_calculator.dart';
 import 'ai_analysis_screen.dart';
+import 'ai_performance_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AiScreen extends StatefulWidget {
@@ -35,9 +37,15 @@ class _AiScreenState extends State<AiScreen> {
     _favoriteTeamIds = (prefs.getStringList('favorite_team_ids') ?? []).toSet();
 
     final today = DateTime.now();
+    final todayStr =
+        '${today.day.toString().padLeft(2, '0')}.${today.month.toString().padLeft(2, '0')}.${today.year}';
     final priority = await _statpal.getPriorityLeagueMatches(filterDate: today);
 
     final List<Map<String, dynamic>> collected = [];
+    // Minden ma megjelenített tippet naplózunk, hogy később a valós
+    // eredménnyel összevetve mérhető legyen az AI teljesítménye - lásd
+    // AiPerformanceScreen. Egy köteg (batch) mentés fut a ciklus végén.
+    final List<PredictionRecord> newPredictionRecords = [];
 
     for (final league in priority) {
       final leagueName = league['name']?.toString() ?? '';
@@ -146,7 +154,52 @@ class _AiScreenState extends State<AiScreen> {
           'maxProb': maxProb,
           'value': value,
         });
+
+        if (leagueId != null && leagueId.isNotEmpty) {
+          final recordId = PredictionTrackerService.buildId(
+            date: todayStr,
+            leagueId: leagueId,
+            homeTeamId: homeId,
+            awayTeamId: awayId,
+            homeTeam: homeName,
+            awayTeam: awayName,
+          );
+
+          double? valueOdds;
+          if (value.hasValue) {
+            if (value.bestSide == 'home') valueOdds = value.homeOdds;
+            if (value.bestSide == 'draw') valueOdds = value.drawOdds;
+            if (value.bestSide == 'away') valueOdds = value.awayOdds;
+          }
+
+          newPredictionRecords.add(PredictionRecord(
+            id: recordId,
+            date: todayStr,
+            leagueId: leagueId,
+            leagueName: leagueName,
+            homeTeam: homeName,
+            awayTeam: awayName,
+            homeTeamId: homeId,
+            awayTeamId: awayId,
+            tipSide: tipSide,
+            tipProbability: tipProb,
+            over25Tip: sim.over25Probability >= 50,
+            over25Probability: sim.over25Probability,
+            bttsTip: sim.bttsYesProbability >= 50,
+            bttsProbability: sim.bttsYesProbability,
+            valueSide: value.hasValue ? value.bestSide : null,
+            valueEdge: value.hasValue ? value.bestEdge : null,
+            valueOdds: valueOdds,
+          ));
+        }
       }
+    }
+
+    if (newPredictionRecords.isNotEmpty) {
+      try {
+        await PredictionTrackerService.recordPredictionsBatch(
+            newPredictionRecords);
+      } catch (_) {}
     }
 
     // Rendezés: kedvencek előre, aztán erősség szerint
@@ -204,6 +257,18 @@ class _AiScreenState extends State<AiScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.query_stats, size: 20),
+            tooltip: 'AI teljesítmény',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AiPerformanceScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, size: 20),
             onPressed: _loadData,
