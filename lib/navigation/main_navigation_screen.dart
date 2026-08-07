@@ -26,19 +26,28 @@ class _MainNavigationScreenState
     extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    MatchesScreen(),
-    AiScreen(),
-    ProfileScreen(),
-  ];
+  void _goToTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Nem lehet const lista, mert a HomeScreen most már egy
+    // instance-specifikus callbacket kap (_goToTab), amivel a "AI Top
+    // Tippek" kártyáról át lehet váltani az AI fülre.
+    final List<Widget> screens = [
+      HomeScreen(onNavigateToTab: _goToTab),
+      const MatchesScreen(),
+      const AiScreen(),
+      const ProfileScreen(),
+    ];
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: screens,
       ),
 
       bottomNavigationBar: NavigationBar(
