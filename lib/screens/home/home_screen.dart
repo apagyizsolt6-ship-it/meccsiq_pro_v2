@@ -10,7 +10,13 @@ File: home_screen.dart
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  // A szülő (MainNavigationScreen) adja át, hogy a "AI Top Tippek"
+  // kártyára koppintva át tudjunk váltani az AI fülre (index: 2) az
+  // alsó navigáción belül, IndexedStack-kompatibilis módon - tehát
+  // nem új képernyőt nyitunk, hanem tabot váltunk.
+  final ValueChanged<int>? onNavigateToTab;
+
+  const HomeScreen({super.key, this.onNavigateToTab});
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +68,9 @@ class HomeScreen extends StatelessWidget {
               subtitle: const Text('A mai legjobb ajánlások'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
-                // Ide később navigáció az AI tabra, ha kell
+                // Az AI fül indexe a bottom nav-ban: 2 (Home=0, Meccsek=1,
+                // AI=2, Profil=3) - lásd main_navigation_screen.dart.
+                onNavigateToTab?.call(2);
               },
             ),
           ),
