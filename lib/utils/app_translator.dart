@@ -156,16 +156,61 @@ class AppTranslator {
     if (nameLower.contains('efl cup')) return 'Anglia – EFL Kupa';
     if (nameLower == 'fa cup') return 'Anglia – FA Kupa';
 
-    if (nameLower == 'bundesliga') return 'Németország – Bundesliga';
+    if (nameLower == 'bundesliga') {
+      if (countryPart.isEmpty ||
+          countryLower == 'germany' ||
+          countryLower == 'németország') {
+        return 'Németország – Bundesliga';
+      }
+      return '${translateCountry(countryPart)} – $namePart';
+    }
     if (nameLower.contains('bundesliga') && nameLower.contains('2')) {
-      return 'Németország – 2. Bundesliga';
+      if (countryPart.isEmpty ||
+          countryLower == 'germany' ||
+          countryLower == 'németország') {
+        return 'Németország – 2. Bundesliga';
+      }
+      return '${translateCountry(countryPart)} – $namePart';
     }
 
-    if (nameLower == 'ligue 1') return 'Franciaország – Ligue 1';
-    if (nameLower == 'ligue 2') return 'Franciaország – Ligue 2';
+    if (nameLower == 'ligue 1') {
+      if (countryPart.isEmpty ||
+          countryLower == 'france' ||
+          countryLower == 'franciaország') {
+        return 'Franciaország – Ligue 1';
+      }
+      return '${translateCountry(countryPart)} – $namePart';
+    }
+    if (nameLower == 'ligue 2') {
+      if (countryPart.isEmpty ||
+          countryLower == 'france' ||
+          countryLower == 'franciaország') {
+        return 'Franciaország – Ligue 2';
+      }
+      return '${translateCountry(countryPart)} – $namePart';
+    }
 
-    if (nameLower == 'serie a') return 'Olaszország – Serie A';
-    if (nameLower == 'serie b') return 'Olaszország – Serie B';
+    // Fontos: a "Serie A" / "Serie B" elnevezést nem csak Olaszország
+    // használja (pl. Ecuador első és másodosztálya is így hívja magát) -
+    // ezért ország-ellenőrzés nélkül tévesen olasz bajnokságnak jelölte
+    // őket. Ugyanazt a védekező mintát alkalmazzuk, mint a Premier
+    // League / Championship / La Liga eseteknél.
+    if (nameLower == 'serie a') {
+      if (countryPart.isEmpty ||
+          countryLower == 'italy' ||
+          countryLower == 'olaszország') {
+        return 'Olaszország – Serie A';
+      }
+      return '${translateCountry(countryPart)} – $namePart';
+    }
+    if (nameLower == 'serie b') {
+      if (countryPart.isEmpty ||
+          countryLower == 'italy' ||
+          countryLower == 'olaszország') {
+        return 'Olaszország – Serie B';
+      }
+      return '${translateCountry(countryPart)} – $namePart';
+    }
 
     if (nameLower == 'la liga' || nameLower == 'primera') {
       if (countryPart.isEmpty ||
