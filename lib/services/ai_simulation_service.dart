@@ -181,6 +181,7 @@ class AiSimulationService {
     String? awayForm;
     int? homePos;
     int? awayPos;
+    int? totalTeamsInLeague;
     double? homeScoredAvg;
     double? homeConcededAvg;
     double? awayScoredAvg;
@@ -196,6 +197,8 @@ class AiSimulationService {
             for (final t in tournaments) {
               final teams = t['team'];
               if (teams is! List) continue;
+
+              totalTeamsInLeague = teams.length;
 
               for (final team in teams) {
                 if (team is! Map) continue;
@@ -421,6 +424,25 @@ class AiSimulationService {
       } else {
         awayAvg = combinedAway;
       }
+    }
+
+    // 4b. TABELLA-POZÍCIÓ ALAPÚ ERŐKÜLÖNBSÉG
+    // A pozíciót eddig csak megjelenítettük, a szimulációban nem
+    // használtuk fel - emiatt egy listavezető és egy kiesőhelyen álló
+    // csapat várható gólszáma is túl közel maradhatott egymáshoz, és a
+    // Poisson-modell emiatt gyakran 1:1-et hozott ki legvalószínűbb
+    // eredménynek még egyértelmű esélyesség esetén is. Ez a korrekció a
+    // tabellán mért pozíciók különbségével arányosan tovább húzza szét
+    // a két csapat lambdáját - minél nagyobb a helyezésbeli szakadék,
+    // annál inkább favorizálja a jobb helyezésű csapatot.
+    if (homePos != null &&
+        awayPos != null &&
+        totalTeamsInLeague != null &&
+        totalTeamsInLeague > 1) {
+      final gapNorm = ((awayPos - homePos) / (totalTeamsInLeague - 1))
+          .clamp(-1.0, 1.0);
+      homeAvg *= (1 + 0.22 * gapNorm);
+      awayAvg *= (1 - 0.18 * gapNorm);
     }
 
     homeAvg *= _formMultiplier(homeForm);
